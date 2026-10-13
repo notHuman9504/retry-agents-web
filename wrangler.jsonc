@@ -1,0 +1,20 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "retry-agents-web",
+	"compatibility_date": "2026-10-01",
+	// A static site: the Worker has no code of its own and only serves what `astro build` writes to dist/.
+	"assets": {
+		"directory": "./dist"
+	},
+	// retri.crek.io is the only origin that should serve the site, the same choice habits makes
+	// for crek.io. With these on, a workers.dev copy of every page would be public too.
+	"workers_dev": false,
+	"preview_urls": false,
+	// A Custom Domain route: the deploy creates the DNS record and certificate on the crek.io zone.
+	"routes": [
+		{
+			"pattern": "retri.crek.io",
+			"custom_domain": true
+		}
+	]
+}

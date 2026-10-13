@@ -1,0 +1,70 @@
+---
+import Pill from './Pill.astro';
+import { site } from '../site';
+---
+
+<header class="nav" data-nav>
+	<div class="wrap">
+		<a class="brand" href="/" aria-label={`${site.name}, home`}>
+			<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+				<circle class="ring" cx="12" cy="12" r="9.5"></circle>
+				<circle class="dot" cx="12" cy="12" r="3.75"></circle>
+			</svg>
+			<span>{site.name}</span>
+		</a>
+		<Pill href={site.repoUrl} label="GitHub" small />
+	</div>
+</header>
+
+<script>
+	const nav = document.querySelector<HTMLElement>('[data-nav]');
+	if (nav) {
+		const sync = () => nav.classList.toggle('is-stuck', scrollY > 12);
+		addEventListener('scroll', sync, { passive: true });
+		sync();
+	}
+</script>
+
+<style>
+	.nav {
+		position: sticky;
+		top: 0;
+		z-index: 20;
+		transition:
+			background 0.3s,
+			box-shadow 0.3s;
+	}
+
+	.nav.is-stuck {
+		background: rgb(20 20 20 / 0.72);
+		box-shadow: 0 1px 0 var(--line);
+		backdrop-filter: blur(14px) saturate(1.4);
+	}
+
+	.wrap {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		height: 4.5rem;
+	}
+
+	.brand {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.6rem;
+		font-size: 1.125rem;
+		font-weight: 600;
+		letter-spacing: -0.02em;
+		text-decoration: none;
+	}
+
+	.ring {
+		fill: none;
+		stroke: var(--ink);
+		stroke-width: 2;
+	}
+
+	.dot {
+		fill: var(--note);
+	}
+</style>

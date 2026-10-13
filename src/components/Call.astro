@@ -1,0 +1,163 @@
+---
+const restored = ['2 files restored', 'Context back to step 2', '1 note added'];
+---
+
+<section class="call wrap">
+	<div class="copy" data-reveal>
+		<h2 class="statement">
+			<span>One tool call.</span>
+			<span>The agent makes it.</span>
+		</h2>
+		<p class="statement statement--quiet">
+			<span>It picks the checkpoint</span>
+			<span>and writes the note.</span>
+		</p>
+	</div>
+
+	<div class="card panel" data-call aria-hidden="true">
+		<p class="bubble">
+			<code>rewind(2, <i>"Sleeps don't fix it. The expiry check is wrong."</i>)</code>
+		</p>
+		<ul>
+			{
+				restored.map((line, i) => (
+					<li style={`--i: ${i}`}>
+						<svg viewBox="0 0 16 16" width="16" height="16">
+							<path d="M3.5 8.5 L6.5 11.5 L12.5 4.5" />
+						</svg>
+						{line}
+					</li>
+				))
+			}
+		</ul>
+	</div>
+</section>
+
+<script>
+	// The first time the panel scrolls in, the call types itself out, then the results land.
+	const TYPE_MS = 22;
+
+	const call = document.querySelector<HTMLElement>('[data-call]');
+	if (call && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+		const chars = letters(call.querySelector('code')!);
+		chars.forEach((char) => (char.style.opacity = '0'));
+		call.classList.add('is-waiting');
+
+		new IntersectionObserver(
+			([entry], observer) => {
+				if (!entry.isIntersecting) return;
+				observer.disconnect();
+				chars.forEach((char, i) => setTimeout(() => type(chars, i), i * TYPE_MS));
+				setTimeout(() => call.classList.remove('is-waiting'), chars.length * TYPE_MS + 250);
+			},
+			{ threshold: 0.6 },
+		).observe(call);
+	}
+
+	// Wraps every character in its own span. They keep their places, so nothing shifts while typing.
+	function letters(root: Element) {
+		const chars: HTMLElement[] = [];
+		const visit = (parent: Node) => {
+			for (const child of [...parent.childNodes]) {
+				if (child.nodeType !== Node.TEXT_NODE) {
+					visit(child);
+					continue;
+				}
+				const pieces = [...child.textContent!].map((letter) => {
+					const char = document.createElement('span');
+					char.textContent = letter;
+					chars.push(char);
+					return char;
+				});
+				child.replaceWith(...pieces);
+			}
+		};
+		visit(root);
+		return chars;
+	}
+
+	function type(chars: HTMLElement[], index: number) {
+		chars[index - 1]?.classList.remove('is-caret');
+		chars[index].style.opacity = '1';
+		if (index < chars.length - 1) chars[index].classList.add('is-caret');
+	}
+</script>
+
+<style>
+	.call {
+		display: grid;
+		align-items: center;
+		gap: 2.5rem clamp(2rem, 6vw, 5rem);
+		padding-bottom: var(--section);
+	}
+
+	.statement--quiet {
+		margin-top: 0.9em;
+	}
+
+	.panel {
+		display: grid;
+		align-content: center;
+		gap: 1.5rem;
+		min-height: clamp(18rem, 34vw, 26rem);
+		padding: clamp(1.5rem, 4vw, 3.5rem);
+	}
+
+	.bubble {
+		justify-self: end;
+		max-width: 24rem;
+		padding: 1rem 1.2rem;
+		border-radius: 1.25rem 1.25rem 0.35rem 1.25rem;
+		background: var(--raised);
+		box-shadow: var(--edge);
+		font-size: clamp(0.8125rem, 1.2vw, 0.9375rem);
+		line-height: 1.6;
+	}
+
+	code {
+		font-family: var(--font-code);
+	}
+
+	code i {
+		font-style: normal;
+		color: var(--note);
+	}
+
+	code :global(.is-caret) {
+		box-shadow: 2px 0 0 var(--ink);
+	}
+
+	ul {
+		display: grid;
+		gap: 0.5rem;
+	}
+
+	li {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		transition:
+			opacity 0.5s,
+			transform 0.6s var(--ease-out);
+		transition-delay: calc(var(--i) * 140ms);
+	}
+
+	.is-waiting li {
+		opacity: 0;
+		transform: translateY(0.4rem);
+	}
+
+	li path {
+		fill: none;
+		stroke: var(--muted);
+		stroke-width: 1.75;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	@media (min-width: 52rem) {
+		.call {
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		}
+	}
+</style>

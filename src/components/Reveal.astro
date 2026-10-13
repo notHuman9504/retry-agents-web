@@ -1,0 +1,54 @@
+<script>
+	// Statements inside [data-reveal] sharpen and brighten word by word as they scroll up the screen.
+	const START = 0.9; // the block starts lighting when its top is this far down the screen
+	const END = 0.55; // and is fully lit when its bottom is this far down
+
+	type Block = { el: HTMLElement; words: HTMLElement[] };
+
+	const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+	const blocks = reduced ? [] : [...document.querySelectorAll<HTMLElement>('[data-reveal]')].map(split);
+
+	if (blocks.length) {
+		let queued = false;
+		const update = () => {
+			if (queued) return;
+			queued = true;
+			requestAnimationFrame(() => {
+				queued = false;
+				blocks.forEach(paint);
+			});
+		};
+		addEventListener('scroll', update, { passive: true });
+		addEventListener('resize', update);
+		update();
+	}
+
+	function split(el: HTMLElement): Block {
+		const words: HTMLElement[] = [];
+		el.querySelectorAll<HTMLElement>('.statement > span').forEach((line) => {
+			const parts = line.textContent!.trim().split(/\s+/);
+			line.textContent = '';
+			parts.forEach((part) => {
+				const word = document.createElement('span');
+				word.className = 'reveal-word';
+				word.textContent = part;
+				line.append(word, ' ');
+				words.push(word);
+			});
+		});
+		return { el, words };
+	}
+
+	function paint({ el, words }: Block) {
+		const box = el.getBoundingClientRect();
+		const from = innerHeight * START;
+		const to = innerHeight * END;
+		const progress = clamp((from - box.top) / (from - to + box.height));
+		const lit = progress * (words.length + 3);
+		words.forEach((word, i) => word.style.setProperty('--lit', String(clamp(lit - i))));
+	}
+
+	function clamp(value: number) {
+		return Math.min(1, Math.max(0, value));
+	}
+</script>

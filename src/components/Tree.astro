@@ -1,0 +1,308 @@
+---
+type Point = [number, number];
+
+const VIEW = { x: 0, y: 30, w: 1100, h: 250 };
+const TRUNK_Y = 150;
+const trunk = [60, 160, 260, 390, 520, 660, 800, 930, 1040];
+
+// Each abandoned attempt: its curve away from the trunk, where its steps sit, and the note it left.
+const attempts = [
+	{
+		curve: [[260, 150], [340, 150], [360, 236], [520, 244]] as Point[],
+		stops: [0.45, 0.72, 1],
+		noteY: 104,
+		text: 'Sleeps don’t fix it. The expiry check is wrong.',
+	},
+	{
+		curve: [[520, 150], [590, 150], [600, 64], [720, 58]] as Point[],
+		stops: [0.55, 1],
+		noteY: 196,
+		text: 'The mock hides the bug. Test against the real store.',
+	},
+	{
+		curve: [[800, 150], [870, 150], [880, 236], [1010, 244]] as Point[],
+		stops: [0.45, 0.72, 1],
+		noteY: 104,
+		text: 'Port 5432 is taken. Use the test container.',
+	},
+].map((attempt) => {
+	const nodes = attempt.stops.map((t) => cubic(attempt.curve, t));
+	return {
+		...attempt,
+		d: `M${attempt.curve[0]} C${attempt.curve.slice(1).join(' ')}`,
+		nodes,
+		end: nodes[nodes.length - 1],
+		fork: attempt.curve[0],
+	};
+});
+
+function cubic([p0, c1, c2, p3]: Point[], t: number): Point {
+	const u = 1 - t;
+	const at = (i: 0 | 1) =>
+		u * u * u * p0[i] + 3 * u * u * t * c1[i] + 3 * u * t * t * c2[i] + t * t * t * p3[i];
+	return [at(0), at(1)];
+}
+
+const percent = (value: number, of: number) => `${(value / of) * 100}%`;
+const trunkEnd = trunk[trunk.length - 1];
+---
+
+<article class="card tree" data-tree>
+	<h3>Every run leaves a map</h3>
+	<p class="said">
+		<i aria-hidden="true"></i>
+		<span data-said aria-live="polite">{attempts[0].text}</span>
+	</p>
+
+	<div class="scroller">
+		<div class="canvas">
+			<svg viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`} aria-hidden="true">
+				{
+					attempts.map(({ d, nodes, end }, i) => (
+						<g class:list={['attempt', { 'is-active': i === 0 }]} data-attempt={i}>
+							<path d={d} />
+							{nodes.map(([x, y]) => (
+								<circle cx={x} cy={y} r="7" />
+							))}
+							<path
+								class="fail"
+								transform={`translate(${end[0] + 22} ${end[1]})`}
+								d="M-5 -5 L5 5 M5 -5 L-5 5"
+							/>
+						</g>
+					))
+				}
+				<path class="trunk" d={`M${trunk[0]} ${TRUNK_Y} H${trunkEnd}`}></path>
+				{
+					trunk.map((x) => (
+						<>
+							<circle class="step" cx={x} cy={TRUNK_Y} r="7" />
+							<circle class="step__dot" cx={x} cy={TRUNK_Y} r="2.75" />
+						</>
+					))
+				}
+				<path
+					class="pass"
+					transform={`translate(${trunkEnd} ${TRUNK_Y - 24})`}
+					d="M-7 0 L-2 5 L7 -5"
+				></path>
+				{
+					attempts.map(({ fork, noteY }) => (
+						<line class="stem" x1={fork[0]} x2={fork[0]} y1={TRUNK_Y} y2={noteY} />
+					))
+				}
+			</svg>
+			{
+				attempts.map(({ fork, noteY, text }, i) => (
+					<button
+						type="button"
+						class:list={['note', { 'is-active': i === 0 }]}
+						style={`left: ${percent(fork[0] - VIEW.x, VIEW.w)}; top: ${percent(noteY - VIEW.y, VIEW.h)}`}
+						data-note={i}
+						data-text={text}
+						aria-label={`Note ${i + 1}: ${text}`}
+						aria-pressed={i === 0}
+					>
+						<span />
+					</button>
+				))
+			}
+		</div>
+	</div>
+</article>
+
+<script>
+	const tree = document.querySelector<HTMLElement>('[data-tree]');
+	if (tree) {
+		const notes = [...tree.querySelectorAll<HTMLButtonElement>('[data-note]')];
+		const attempts = [...tree.querySelectorAll<SVGGElement>('[data-attempt]')];
+		const said = tree.querySelector<HTMLElement>('[data-said]')!;
+
+		const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+		let current = 0;
+		let timer = 0;
+		let touched = false;
+
+		const show = (index: number) => {
+			current = index;
+			notes.forEach((note, i) => {
+				note.classList.toggle('is-active', i === index);
+				note.setAttribute('aria-pressed', String(i === index));
+			});
+			attempts.forEach((attempt, i) => attempt.classList.toggle('is-active', i === index));
+			said.textContent = notes[index].dataset.text!;
+		};
+
+		// Until someone picks a note, the map walks through them by itself while it is on screen.
+		const stop = () => {
+			clearInterval(timer);
+			timer = 0;
+		};
+		const walk = () => {
+			if (touched || reduced || timer) return;
+			timer = window.setInterval(() => show((current + 1) % notes.length), 3200);
+		};
+		const pick = (index: number) => {
+			touched = true;
+			stop();
+			show(index);
+		};
+
+		notes.forEach((note, i) => {
+			note.addEventListener('click', () => pick(i));
+			note.addEventListener('pointerenter', () => pick(i));
+			note.addEventListener('focus', () => pick(i));
+		});
+		new IntersectionObserver(([entry]) => (entry.isIntersecting ? walk() : stop()), {
+			threshold: 0.4,
+		}).observe(tree);
+	}
+</script>
+
+<style>
+	.tree {
+		display: grid;
+		justify-items: center;
+		padding-block: clamp(1.5rem, 3vw, 2.25rem) clamp(1rem, 2vw, 1.5rem);
+		text-align: center;
+	}
+
+	.said {
+		display: flex;
+		align-items: baseline;
+		justify-content: center;
+		gap: 0.55rem;
+		min-height: 3em;
+		margin-top: 0.3rem;
+		padding-inline: 1.25rem;
+		color: var(--muted);
+	}
+
+	.said i {
+		flex: none;
+		width: 0.65em;
+		height: 0.65em;
+		border-radius: 0.18em;
+		background: var(--note);
+	}
+
+	/* On narrow screens the map keeps a readable size and pans sideways. */
+	.scroller {
+		width: 100%;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+
+	.canvas {
+		position: relative;
+		min-width: 44rem;
+	}
+
+	svg {
+		width: 100%;
+		height: auto;
+	}
+
+	path,
+	line {
+		fill: none;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	.trunk {
+		stroke: var(--ink);
+		stroke-width: 2;
+	}
+
+	.step {
+		fill: var(--surface);
+		stroke: var(--ink);
+		stroke-width: 1.5;
+	}
+
+	.step__dot {
+		fill: var(--ink);
+	}
+
+	.pass {
+		stroke: var(--ink);
+		stroke-width: 2.25;
+	}
+
+	.attempt path {
+		stroke: var(--ghost);
+		stroke-width: 2;
+		stroke-dasharray: 2 8;
+		transition: stroke 0.25s;
+	}
+
+	.attempt circle {
+		fill: var(--surface);
+		stroke: var(--ghost);
+		stroke-width: 1.5;
+		stroke-dasharray: 3 3.5;
+		transition: stroke 0.25s;
+	}
+
+	.attempt .fail {
+		stroke: var(--fail);
+		stroke-dasharray: none;
+		opacity: 0.45;
+		transition: opacity 0.25s;
+	}
+
+	.attempt.is-active :is(path, circle) {
+		stroke: var(--muted);
+	}
+
+	.attempt.is-active .fail {
+		stroke: var(--fail);
+		opacity: 1;
+	}
+
+	.stem {
+		stroke: var(--note);
+		stroke-width: 1.5;
+	}
+
+	/* A 44px hit area around a small chip. */
+	.note {
+		position: absolute;
+		display: grid;
+		place-items: center;
+		width: 2.75rem;
+		height: 2.75rem;
+		padding: 0;
+		border: 0;
+		border-radius: 50%;
+		background: none;
+		cursor: pointer;
+		translate: -50% -50%;
+	}
+
+	.note span {
+		width: 1.75rem;
+		height: 1.2rem;
+		border-radius: 0.3rem;
+		background:
+			linear-gradient(var(--bg), var(--bg)) 0.42rem 0.4rem / 0.9rem 2px no-repeat,
+			linear-gradient(var(--bg), var(--bg)) 0.42rem 0.7rem / 0.6rem 2px no-repeat,
+			var(--note);
+		opacity: 0.5;
+		transition:
+			opacity 0.2s,
+			scale 0.3s cubic-bezier(0.2, 1.4, 0.4, 1);
+	}
+
+	.note.is-active span {
+		opacity: 1;
+		scale: 1.12;
+	}
+
+	@media (min-width: 44rem) {
+		.tree {
+			grid-column: 1 / -1;
+		}
+	}
+</style>

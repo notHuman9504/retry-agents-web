@@ -1,0 +1,19 @@
+---
+interface Props {
+	href: string;
+	label: string;
+	primary?: boolean;
+	small?: boolean;
+}
+
+const { href, label, primary = false, small = false } = Astro.props;
+---
+
+<a class:list={['pill', { 'pill--primary': primary, 'pill--small': small }]} href={href}>
+	<!-- The label is set twice so it can roll over on hover; the copy is hidden from screen readers. -->
+	<span class="roll">
+		<span>{label}</span>
+		<span aria-hidden="true">{label}</span>
+	</span>
+	<slot />
+</a>

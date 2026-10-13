@@ -1,0 +1,52 @@
+---
+import Pill from './Pill.astro';
+import { site } from '../site';
+---
+
+<section class="closing wrap">
+	<h2>
+		<span>In development.</span>
+		<span>Starting with Pi.</span>
+	</h2>
+	<div class="actions">
+		<Pill href={site.repoUrl} label="Follow on GitHub" primary />
+		<Pill href="https://pi.dev" label="What is Pi" />
+	</div>
+</section>
+
+<style>
+	/* The section above already ends with a full section of space. */
+	.closing {
+		display: grid;
+		justify-items: center;
+		padding-bottom: var(--section);
+		text-align: center;
+	}
+
+	/* A grid, so the lines' negative margins don't collapse into each other. */
+	h2 {
+		display: grid;
+		font-size: clamp(2.25rem, 5.6vw, 4.5rem);
+		font-weight: var(--heavy);
+		line-height: 1.06;
+		letter-spacing: -0.04em;
+	}
+
+	/* The padding gives the gradient room to cover descenders; the margin takes it back out of the layout. */
+	h2 span {
+		margin-block: -0.12em;
+		padding-block: 0.12em;
+		background: var(--ink-fade);
+		-webkit-background-clip: text;
+		background-clip: text;
+		color: transparent;
+	}
+
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 0.6rem;
+		margin-top: clamp(1.75rem, 3.5vw, 2.75rem);
+	}
+</style>

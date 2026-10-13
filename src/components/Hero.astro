@@ -1,0 +1,221 @@
+---
+import Pill from './Pill.astro';
+import { site } from '../site';
+
+// The three tiles tell the story in order: a mistake, the rewind, a pass.
+const icons = {
+	fail: 'M7 7 L17 17 M17 7 L7 17',
+	rewind: 'M11.5 6.5 V17.5 L4 12 Z M20 6.5 V17.5 L12.5 12 Z',
+	pass: 'M6 12.5 L10.5 17 L18.5 7.5',
+};
+type Tile = keyof typeof icons;
+
+const headline: (string | { tile: Tile })[][] = [
+	['Coding', { tile: 'fail' }, 'agents'],
+	['that', 'rewind', { tile: 'rewind' }, 'and'],
+	['try', { tile: 'pass' }, 'again'],
+];
+
+// Every word and tile gets its place in the entrance, counted across the whole headline.
+let place = 0;
+---
+
+<section class="hero wrap">
+	<h1>
+		{
+			headline.map((line) => (
+				<span class="line">
+					{line.map((part) => (
+						<>
+							{typeof part === 'string' ? (
+								<span class="word" style={`--n: ${place++}`}>
+									{part}
+								</span>
+							) : (
+								<i class:list={['tile', `tile--${part.tile}`]} style={`--n: ${place++}`} aria-hidden="true">
+									<svg viewBox="0 0 24 24">
+										<path d={icons[part.tile]} />
+									</svg>
+								</i>
+							)}{' '}
+						</>
+					))}
+				</span>
+			))
+		}
+	</h1>
+	<p class="lede">
+		<span>A rewind tool the agent calls itself.</span>
+		<span>Files and context go back. The lesson stays.</span>
+	</p>
+	<div class="actions">
+		<Pill href={site.repoUrl} label="Follow on GitHub" primary />
+		<Pill href="#demo" label="How it works">
+			<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+				<path d="M8 3 V13 M3.5 8.5 L8 13 L12.5 8.5"></path>
+			</svg>
+		</Pill>
+	</div>
+</section>
+
+<style>
+	.hero {
+		display: grid;
+		justify-items: center;
+		padding-block: clamp(3rem, 8vw, 6.5rem) clamp(3rem, 6vw, 5rem);
+		text-align: center;
+	}
+
+	/* The longest line is just under 8em wide, so on small screens the size is the column divided by 8. */
+	h1 {
+		font-size: clamp(2rem, (100vw - 2 * var(--gutter)) / 8, 6rem);
+		font-weight: var(--heavy);
+		line-height: 1.04;
+		letter-spacing: -0.04em;
+	}
+
+	.line {
+		display: block;
+	}
+
+	/* The padding gives the gradient room to cover descenders; the margin takes it back out of the layout. */
+	.word {
+		display: inline-block;
+		margin-block: -0.12em;
+		padding-block: 0.12em;
+		background: var(--ink-fade);
+		-webkit-background-clip: text;
+		background-clip: text;
+		color: transparent;
+	}
+
+	/* Sized and set so the tile is centered on the capitals, a little taller than them. */
+	.tile {
+		display: inline-grid;
+		place-items: center;
+		width: 0.8em;
+		height: 0.8em;
+		margin-inline: 0.1em;
+		border-radius: 0.2em;
+		box-shadow:
+			inset 0 0.02em 0 rgb(255 255 255 / 0.45),
+			0 0.1em 0.3em rgb(0 0 0 / 0.35);
+		vertical-align: -0.05em;
+	}
+
+	.tile svg {
+		width: 62%;
+		height: 62%;
+	}
+
+	.tile path {
+		fill: none;
+		stroke: var(--bg);
+		stroke-width: 3;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	.tile--rewind path {
+		fill: var(--bg);
+		stroke-width: 1.5;
+	}
+
+	.tile--fail {
+		background: var(--fail);
+	}
+
+	.tile--rewind {
+		background: var(--note);
+	}
+
+	.tile--pass {
+		background: var(--ink);
+	}
+
+	.lede {
+		margin-top: clamp(1.5rem, 3vw, 2.25rem);
+		color: var(--muted);
+		font-size: clamp(1.0625rem, 1.5vw, 1.25rem);
+		line-height: 1.4;
+	}
+
+	.lede span {
+		display: block;
+	}
+
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 0.6rem;
+		margin-top: clamp(1.75rem, 3.5vw, 2.75rem);
+	}
+
+	.actions path {
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.75;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	/* The one entrance on the page. The headline opens from condensed to full width while each
+	   word comes into focus in turn and each tile pops into its gap; then the rest rises in. */
+	@media (prefers-reduced-motion: no-preference) {
+		h1 {
+			animation: open 1.5s var(--ease-out) both;
+		}
+
+		.word {
+			animation: focus 1s var(--ease-out) both;
+			animation-delay: calc(var(--n) * 65ms);
+		}
+
+		.tile {
+			animation: pop 0.7s var(--ease-spring) both;
+			animation-delay: calc(200ms + var(--n) * 65ms);
+		}
+
+		.lede,
+		.actions {
+			animation: rise 0.9s var(--ease-out) both;
+		}
+
+		.lede {
+			animation-delay: 0.55s;
+		}
+
+		.actions {
+			animation-delay: 0.65s;
+		}
+	}
+
+	@keyframes open {
+		from {
+			font-stretch: 78%;
+		}
+	}
+
+	@keyframes focus {
+		from {
+			opacity: 0;
+			filter: blur(0.16em);
+			transform: translateY(0.35em);
+		}
+	}
+
+	@keyframes pop {
+		from {
+			opacity: 0;
+			transform: scale(0.2) rotate(-18deg);
+		}
+	}
+
+	@keyframes rise {
+		from {
+			opacity: 0;
+			transform: translateY(0.45em);
+		}
+	}
+</style>

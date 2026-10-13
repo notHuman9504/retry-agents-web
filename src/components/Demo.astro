@@ -1,0 +1,953 @@
+---
+const VIEW = { w: 700, h: 300 };
+// Same shape as the attempts on the map: leave the checkpoint level, drop in an S, then run on as a lower lane.
+const WRONG_PATH = 'M170 130 C 250 130, 270 226, 400 232 S 580 240, 660 240';
+
+// `from` is where each stage begins on the scrubber, as a fraction of the whole run.
+const stages = [
+	{ name: 'Checkpoint', from: 0, text: 'Every step is saved: files and conversation.' },
+	{ name: 'Wrong turn', from: 0.2, text: 'The agent takes a wrong turn. Tests keep failing.' },
+	{
+		name: 'Rewind',
+		from: 0.46,
+		text: 'It rewinds itself. Files and context go back, and a note carries the lesson.',
+	},
+	{ name: 'Retry', from: 0.75, text: 'It tries again, knowing why.' },
+];
+
+const nodes = [
+	{ id: 'n1' },
+	{ id: 'n2' },
+	{ id: 'w3' },
+	{ id: 'w4', mark: 'fail' },
+	{ id: 'w5' },
+	{ id: 'w6', mark: 'fail' },
+	{ id: 'f3' },
+	{ id: 'f4', mark: 'pass' },
+];
+
+// One group per step: the bars are the messages that step adds to the model's context.
+const context = [
+	{ beat: 'task', bars: [58] },
+	{ beat: 's2', bars: [34, 82] },
+	{ beat: 'w3', bars: [46, 71], wrong: true },
+	{ beat: 'w4', bars: [30, 88], wrong: true },
+	{ beat: 'w5', bars: [52, 64], wrong: true },
+	{ beat: 'w6', bars: [30, 93], wrong: true },
+	{ beat: 'note', bars: [76], note: true },
+	{ beat: 'f3', bars: [44, 68] },
+	{ beat: 'f4', bars: [30, 79] },
+];
+---
+
+<section class="demo wrap" id="demo" data-demo>
+	<div class="frame card">
+		<div class="window">
+			<p class="readout" data-readout data-kind="task" aria-hidden="true">
+				<span class="readout__count" data-count>01</span>
+				<code data-cmd>Fix the flaky login test</code>
+				<span class="readout__status" data-status></span>
+			</p>
+
+			<div class="body">
+				<div class="canvas" aria-hidden="true">
+					<div class="graph" data-graph>
+						<svg viewBox={`0 0 ${VIEW.w} ${VIEW.h}`} width={VIEW.w} height={VIEW.h}>
+							<path class="ghost" data-path="ghost" d={WRONG_PATH}></path>
+							<path class="live" data-path="main" pathLength="1" d="M23 130 H170"></path>
+							<path class="live" data-path="wrong" pathLength="1" d={WRONG_PATH}></path>
+							<path class="live" data-path="retry" pathLength="1" d="M170 130 H450"></path>
+							<path class="tail" data-path="tail" d="M450 130 H580"></path>
+							<line class="head" data-head x1="23" x2="23" y1="28" y2="284"></line>
+							<circle class="halo" data-halo cx="23" cy="130" r="20"></circle>
+							{
+								nodes.map(({ id, mark }) => (
+									<g
+										class:list={['node', { 'is-on': id === 'n1' }]}
+										data-node={id}
+										transform="translate(23 130)"
+									>
+										<g class="node__in">
+											<circle class="node__ring" r="11" />
+											<circle class="node__dot" r="4.5" />
+											{mark === 'fail' && <path class="node__fail" d="M-5 21 L5 31 M5 21 L-5 31" />}
+											{mark === 'pass' && <path class="node__pass" d="M-7 -26 L-2 -21 L7 -31" />}
+										</g>
+									</g>
+								))
+							}
+							<g class="note" data-note transform="translate(660 190)">
+								<line class="note__stem" y1="10" y2="34"></line>
+								<rect x="-15" y="-10" width="30" height="20" rx="4.5"></rect>
+								<path d="M-8 -3 h16 M-8 3.5 h10"></path>
+							</g>
+						</svg>
+					</div>
+				</div>
+
+				<aside class="state" aria-hidden="true">
+					<div>
+						<h3>Context</h3>
+						<ol class="ctx">
+							{
+								context.map(({ beat, bars, wrong, note }) =>
+									bars.map((width) => (
+										<li
+											class:list={[
+												'bar',
+												{ 'bar--wrong': wrong, 'bar--note': note, 'is-on': beat === 'task' },
+											]}
+											data-beat={beat}
+											style={`--w: ${width}%`}
+										/>
+									)),
+								)
+							}
+						</ol>
+					</div>
+					<div>
+						<h3>Files</h3>
+						<ul class="files">
+							<li data-file="session"><span>auth/session.ts</span><b>M</b></li>
+							<li class="is-wrong" data-file="test"><span>tests/login.test.ts</span><b>M</b></li>
+						</ul>
+					</div>
+				</aside>
+			</div>
+
+			<div class="controls">
+				<div class="track">
+					{stages.slice(1).map(({ from }) => <i style={`--at: ${from}`} />)}
+					<input
+						type="range"
+						min="0"
+						max="1000"
+						value="0"
+						aria-label="Scrub through the run"
+						data-scrub
+					/>
+				</div>
+				<div class="stages" role="group" aria-label="Jump to a stage">
+					{
+						stages.map(({ name }, i) => (
+							<button type="button" aria-pressed={i === 0} data-stage={i}>
+								{name}
+							</button>
+						))
+					}
+				</div>
+			</div>
+		</div>
+		<p class="caption" data-caption data-captions={JSON.stringify(stages.map((stage) => stage.text))}>
+			{stages[0].text}
+		</p>
+	</div>
+</section>
+
+<script>
+	// The scene is a pure function of one number, p, from 0 to 1. It plays by itself,
+	// and the scrubber sets p by hand, so dragging left rewinds it.
+	const WRONG_STEPS = [0.25, 0.5, 0.75, 1]; // where the four wrong steps sit along their path
+	const PHASE = {
+		main: [0.05, 0.17],
+		wrong: [0.2, 0.46],
+		call: 0.46,
+		rewind: [0.54, 0.7],
+		retry: [0.75, 0.92],
+	} as const;
+	const STAGE_STARTS = [0, PHASE.wrong[0], PHASE.call, PHASE.retry[0]];
+	const STAGE_ENDS = [PHASE.main[1], PHASE.call, 0.74, 1]; // where each stage's picture is complete
+	const BEATS: Record<string, { kind: string; cmd: string; status?: string }> = {
+		task: { kind: 'task', cmd: 'Fix the flaky login test' },
+		s2: { kind: 'fail', cmd: 'npm test', status: '1 failing' },
+		w3: { kind: 'tool', cmd: 'edit tests/login.test.ts' },
+		w4: { kind: 'fail', cmd: 'npm test', status: '1 failing' },
+		w5: { kind: 'tool', cmd: 'edit tests/login.test.ts' },
+		w6: { kind: 'fail', cmd: 'npm test', status: '2 failing' },
+		call: {
+			kind: 'rewind',
+			cmd: 'rewind(2, <i>"Sleeps don\'t fix it. The expiry check is wrong."</i>)',
+		},
+		f3: { kind: 'tool', cmd: 'edit auth/session.ts' },
+		f4: { kind: 'pass', cmd: 'npm test', status: 'passing' },
+	};
+	const VIEW = { w: 700, h: 300 };
+	const TRIM = 11; // empty viewBox units left of the first node, cut so the node sits on the text edge
+	const MIN_SCALE = 0.7; // below this the whole drawing is too small to read, so it pans instead
+	const MAX_SCALE = 1.5;
+	const PAN_SCALE = 0.85;
+	const PAN_ANCHOR = 0.74; // where the playhead sits across the screen while panning; the past stays in view
+	const LOOP_SECONDS = 13;
+	const HOLD_SECONDS = 1.8;
+	const RESUME_SECONDS = 2.5; // after the last touch, the loop takes over again
+	const EPS = 0.001;
+
+	const demo = document.querySelector<HTMLElement>('[data-demo]');
+	if (demo) start(demo);
+
+	function start(demo: HTMLElement) {
+		const find = <T extends Element>(selector: string) => demo.querySelector<T>(selector)!;
+		const all = <T extends Element>(selector: string) => [...demo.querySelectorAll<T>(selector)];
+
+		const graph = find<HTMLElement>('[data-graph]');
+		const svg = find<SVGSVGElement>('[data-graph] svg');
+		const main = find<SVGPathElement>('[data-path="main"]');
+		const wrong = find<SVGPathElement>('[data-path="wrong"]');
+		const retry = find<SVGPathElement>('[data-path="retry"]');
+		const ghost = find<SVGPathElement>('[data-path="ghost"]');
+		const tail = find<SVGPathElement>('[data-path="tail"]');
+		const head = find<SVGLineElement>('[data-head]');
+		const halo = find<SVGCircleElement>('[data-halo]');
+		const note = find<SVGGElement>('[data-note]');
+		const node = (id: string) => find<SVGGElement>(`[data-node="${id}"]`);
+		const wrongNodes = ['w3', 'w4', 'w5', 'w6'].map(node);
+		const bars = all<HTMLElement>('[data-beat]');
+		const sessionFile = find<HTMLElement>('[data-file="session"]');
+		const testFile = find<HTMLElement>('[data-file="test"]');
+		const readout = find<HTMLElement>('[data-readout]');
+		const count = find<HTMLElement>('[data-count]');
+		const cmd = find<HTMLElement>('[data-cmd]');
+		const status = find<HTMLElement>('[data-status]');
+		const scrub = find<HTMLInputElement>('[data-scrub]');
+		const stageButtons = all<HTMLButtonElement>('[data-stage]');
+		const caption = find<HTMLElement>('[data-caption]');
+		const captions: string[] = JSON.parse(caption.dataset.captions!);
+		const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+
+		const lengths = new Map([main, wrong, retry].map((path) => [path, path.getTotalLength()]));
+		const point = (path: SVGPathElement, fraction: number) =>
+			path.getPointAtLength(lengths.get(path)! * fraction);
+		const checkpoint = point(wrong, 0);
+
+		place(node('n1'), point(main, 0));
+		place(node('n2'), point(main, 1));
+		wrongNodes.forEach((el, i) => place(el, point(wrong, WRONG_STEPS[i])));
+		place(node('f3'), point(retry, 0.5));
+		place(node('f4'), point(retry, 1));
+
+		// With motion off there is no loop: start on the finished picture and let the scrubber explore.
+		let target = reduced.matches ? 1 : 0;
+		let shown = target; // p currently drawn, easing toward target
+		let byHand = reduced.matches;
+		let dragging = false;
+		let idle = 0;
+		let hold = 0;
+		let last = 0;
+		let frameId = 0;
+		let inView = false;
+		let scale = 1;
+		let overflow = 0;
+		let width = 0;
+		let beat = '';
+		let stage = -1;
+
+		scrub.addEventListener('pointerdown', () => (dragging = true));
+		scrub.addEventListener('input', () => take(Number(scrub.value) / 1000));
+		addEventListener('pointerup', release);
+		addEventListener('pointercancel', release);
+		stageButtons.forEach((button, i) => button.addEventListener('click', () => take(STAGE_ENDS[i])));
+		document.addEventListener('visibilitychange', wake);
+		new ResizeObserver(fit).observe(graph);
+		new IntersectionObserver(([entry]) => {
+			inView = entry.isIntersecting;
+			wake();
+		}).observe(demo);
+		fit();
+
+		function take(p: number) {
+			byHand = true;
+			idle = hold = 0;
+			target = p;
+			wake();
+		}
+
+		function release() {
+			dragging = false;
+			idle = 0;
+		}
+
+		function wake() {
+			if (frameId) return;
+			last = performance.now();
+			frameId = requestAnimationFrame(frame);
+		}
+
+		function frame(now: number) {
+			frameId = 0;
+			const dt = Math.min((now - last) / 1000, 0.1);
+			last = now;
+
+			if (byHand) {
+				if (!dragging && !reduced.matches && (idle += dt) > RESUME_SECONDS) byHand = false;
+			} else if (target < 1) {
+				target = Math.min(1, target + dt / LOOP_SECONDS);
+			} else if ((hold += dt) > HOLD_SECONDS) {
+				target = hold = 0;
+			}
+
+			shown = reduced.matches ? target : shown + (target - shown) * (1 - Math.exp(-dt * 10));
+			if (Math.abs(target - shown) < 0.0005) shown = target;
+			render(shown);
+
+			const playing = !byHand || !reduced.matches || shown !== target;
+			if (inView && playing && document.visibilityState === 'visible') {
+				frameId = requestAnimationFrame(frame);
+			}
+		}
+
+		function render(p: number) {
+			const a = span(p, PHASE.main);
+			const w = span(p, PHASE.wrong);
+			const back = ease(span(p, PHASE.rewind));
+			const live = w * (1 - back); // how much of the wrong path is still the present
+			const f = span(p, PHASE.retry);
+			const called = p >= PHASE.call;
+			const reached = (at: number, of: number) => of >= at - EPS;
+
+			draw(main, a);
+			draw(wrong, live);
+			draw(retry, f);
+			ghost.classList.toggle('is-on', back > 0);
+			tail.classList.toggle('is-on', reached(1, f));
+			svg.classList.toggle('is-rewinding', called && f === 0);
+
+			node('n2').classList.toggle('is-on', reached(1, a));
+			WRONG_STEPS.forEach((at, i) => {
+				wrongNodes[i].classList.toggle('is-on', reached(at, w));
+				wrongNodes[i].classList.toggle('is-ghost', reached(at, w) && !reached(at, live));
+			});
+			node('f3').classList.toggle('is-on', reached(0.5, f));
+			node('f4').classList.toggle('is-on', reached(1, f));
+
+			const now = f > 0 ? point(retry, f) : w > 0 ? point(wrong, live) : point(main, a);
+			head.setAttribute('x1', String(now.x));
+			head.setAttribute('x2', String(now.x));
+			halo.setAttribute('cx', String(now.x));
+			halo.setAttribute('cy', String(now.y));
+			pan(now.x);
+
+			// The note appears with the call, rides the playhead back, then stays on the checkpoint.
+			const carried = f > 0 ? checkpoint : now;
+			note.classList.toggle('is-on', called);
+			note.setAttribute('transform', `translate(${carried.x} ${carried.y - 46})`);
+
+			const liveWrong = WRONG_STEPS.filter((at) => reached(at, live)).length;
+			const retried = Number(reached(0.5, f)) + Number(reached(1, f));
+			const step = (reached(1, a) ? 2 : 1) + liveWrong + retried;
+			count.textContent = String(step).padStart(2, '0');
+
+			const visible: Record<string, boolean> = {
+				task: true,
+				s2: reached(1, a),
+				w3: reached(WRONG_STEPS[0], live),
+				w4: reached(WRONG_STEPS[1], live),
+				w5: reached(WRONG_STEPS[2], live),
+				w6: reached(WRONG_STEPS[3], live),
+				note: p >= PHASE.rewind[1],
+				f3: reached(0.5, f),
+				f4: reached(1, f),
+			};
+			bars.forEach((bar) => bar.classList.toggle('is-on', visible[bar.dataset.beat!]));
+			testFile.classList.toggle('is-changed', visible.w3);
+			sessionFile.classList.toggle('is-changed', visible.f3);
+
+			const reachedWrong = WRONG_STEPS.filter((at) => reached(at, w)).length;
+			let next = reached(1, a) ? 's2' : 'task';
+			if (reachedWrong) next = ['w3', 'w4', 'w5', 'w6'][reachedWrong - 1];
+			if (called) next = 'call';
+			if (visible.f3) next = 'f3';
+			if (visible.f4) next = 'f4';
+			if (next !== beat) say((beat = next));
+
+			const current = STAGE_STARTS.filter((from) => p >= from).length - 1;
+			if (current !== stage) enter(current);
+
+			if (!dragging) scrub.value = String(Math.round(p * 1000));
+			scrub.style.setProperty('--p', String(p));
+		}
+
+		function say(id: string) {
+			const { kind, cmd: text, status: result = '' } = BEATS[id];
+			readout.dataset.kind = kind;
+			cmd.innerHTML = text;
+			status.textContent = result;
+		}
+
+		function enter(index: number) {
+			const first = stage === -1;
+			stage = index;
+			stageButtons.forEach((button, i) => button.setAttribute('aria-pressed', String(i === index)));
+			caption.textContent = captions[index];
+			if (first || reduced.matches) return;
+			caption.animate(
+				[{ opacity: 0, transform: 'translateY(0.3rem)' }, { opacity: 1, transform: 'none' }],
+				{ duration: 350, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+			);
+		}
+
+		function fit() {
+			width = graph.clientWidth;
+			const drawn = VIEW.w - TRIM;
+			const tallest = graph.clientHeight / VIEW.h;
+			const whole = Math.min(tallest, width / drawn);
+			scale = whole >= MIN_SCALE ? Math.min(whole, MAX_SCALE) : Math.min(tallest, PAN_SCALE);
+			overflow = Math.max(0, drawn * scale - width);
+			svg.style.width = `${VIEW.w * scale}px`;
+			svg.style.height = `${VIEW.h * scale}px`;
+			render(shown);
+		}
+
+		// On narrow screens the drawing is wider than its window, so it follows the playhead.
+		function pan(x: number) {
+			const trim = TRIM * scale;
+			const follow = overflow ? clamp(x * scale - trim - width * PAN_ANCHOR, 0, overflow) : 0;
+			svg.style.transform = `translateX(${-(trim + follow)}px)`;
+		}
+	}
+
+	function place(el: SVGGElement, at: DOMPoint) {
+		el.setAttribute('transform', `translate(${at.x} ${at.y})`);
+	}
+
+	function draw(path: SVGPathElement, fraction: number) {
+		path.style.strokeDashoffset = String(1 - fraction);
+		path.style.visibility = fraction > 0 ? 'visible' : 'hidden';
+	}
+
+	function span(p: number, [from, to]: readonly [number, number]) {
+		return clamp((p - from) / (to - from));
+	}
+
+	function ease(t: number) {
+		return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+	}
+
+	function clamp(value: number, min = 0, max = 1) {
+		return Math.min(max, Math.max(min, value));
+	}
+</script>
+
+<style>
+	.demo {
+		scroll-margin-top: 1rem;
+	}
+
+	.frame {
+		--pad: clamp(1rem, 2.2vw, 1.5rem);
+		padding: clamp(0.5rem, 1.4vw, 1rem);
+		padding-bottom: 0;
+	}
+
+	/* Three bands split by hairlines: the tool call, the run, the controls. */
+	.window {
+		overflow: hidden;
+		border-radius: calc(var(--card) - clamp(0.5rem, 1.4vw, 1rem));
+		background: var(--well);
+		box-shadow: var(--edge);
+	}
+
+	.caption {
+		display: grid;
+		place-items: center;
+		min-height: 4.5rem;
+		padding: 1rem var(--pad);
+		color: var(--muted);
+		text-align: center;
+	}
+
+	/* Readout: the tool call at the playhead. */
+	.readout {
+		display: flex;
+		align-items: baseline;
+		gap: 0.85rem;
+		min-height: calc(3.2em + 2 * var(--pad) - 0.5rem);
+		padding: calc(var(--pad) - 0.25rem) var(--pad);
+		border-bottom: 1px solid var(--line);
+		font-family: var(--font-code);
+		font-size: clamp(0.75rem, 1.05vw, 0.875rem);
+		line-height: 1.6;
+	}
+
+	.readout__count {
+		color: var(--muted);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.readout code {
+		font: inherit;
+	}
+
+	.readout[data-kind='task'] code {
+		font-family: var(--font);
+		font-size: 1.14em;
+	}
+
+	.readout[data-kind='task'] code::before {
+		content: '\201C';
+	}
+
+	.readout[data-kind='task'] code::after {
+		content: '\201D';
+	}
+
+	.readout code :global(i) {
+		font-style: normal;
+		color: var(--note);
+	}
+
+	.readout__status {
+		flex: none;
+		font-family: var(--font);
+	}
+
+	.readout[data-kind='fail'] .readout__status {
+		color: var(--fail);
+	}
+
+	.body {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	/* Canvas: graph paper that fades out toward the edges. It also clips the drawing while it pans. */
+	.canvas {
+		position: relative;
+		padding: 0 var(--pad);
+		overflow: hidden;
+	}
+
+	.canvas::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background-image: radial-gradient(rgb(255 255 255 / 0.075) 1px, transparent 1.5px);
+		background-size: 1.5rem 1.5rem;
+		background-position: center;
+		mask-image: radial-gradient(ellipse 75% 85% at 40% 50%, #000 20%, transparent 78%);
+	}
+
+	.graph {
+		position: relative;
+		display: flex;
+		align-items: center;
+		height: 13rem;
+	}
+
+	.graph svg {
+		flex: none;
+		max-width: none;
+		overflow: visible;
+		will-change: transform;
+	}
+
+	.graph path,
+	.graph line {
+		fill: none;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	.live {
+		stroke: var(--ink);
+		stroke-width: 2;
+		stroke-dasharray: 1;
+		stroke-dashoffset: 1;
+		visibility: hidden;
+	}
+
+	.ghost,
+	.tail {
+		stroke: var(--ghost);
+		stroke-width: 2;
+		stroke-dasharray: 2 8;
+		opacity: 0;
+		transition: opacity 0.3s;
+	}
+
+	.tail {
+		stroke: var(--muted);
+	}
+
+	:is(.ghost, .tail).is-on {
+		opacity: 1;
+	}
+
+	.head {
+		stroke: var(--ink);
+		stroke-width: 1;
+		opacity: 0.2;
+		transition: stroke 0.2s;
+	}
+
+	.halo {
+		fill: var(--ink);
+		opacity: 0.1;
+		transition: fill 0.2s;
+	}
+
+	.is-rewinding .head {
+		stroke: var(--note);
+		opacity: 0.55;
+	}
+
+	.is-rewinding .halo {
+		fill: var(--note);
+		opacity: 0.16;
+	}
+
+	.node__in {
+		opacity: 0;
+		transform: scale(0.4);
+		transform-box: fill-box;
+		transform-origin: center;
+		transition:
+			opacity 0.2s,
+			transform 0.35s var(--ease-spring);
+	}
+
+	.node.is-on .node__in {
+		opacity: 1;
+		transform: none;
+	}
+
+	.node__ring {
+		fill: var(--well);
+		stroke: var(--ink);
+		stroke-width: 1.5;
+		transition: stroke 0.25s;
+	}
+
+	.node__dot {
+		fill: var(--ink);
+		transition: fill 0.25s;
+	}
+
+	.node.is-ghost .node__ring {
+		stroke: var(--ghost);
+		stroke-dasharray: 3 3.5;
+	}
+
+	.node.is-ghost .node__dot {
+		fill: var(--ghost);
+	}
+
+	.node__fail {
+		stroke: var(--fail);
+		stroke-width: 2;
+		transition: opacity 0.25s;
+	}
+
+	.node.is-ghost .node__fail {
+		opacity: 0.5;
+	}
+
+	.node__pass {
+		stroke: var(--ink);
+		stroke-width: 2.25;
+	}
+
+	.note {
+		opacity: 0;
+		transition: opacity 0.2s;
+	}
+
+	.note.is-on {
+		opacity: 1;
+	}
+
+	.note rect {
+		fill: var(--note);
+	}
+
+	.note path {
+		stroke: var(--bg);
+		stroke-width: 2;
+	}
+
+	.note__stem {
+		stroke: var(--note);
+		stroke-width: 1.5;
+	}
+
+	/* State: what the model sees, and what is on disk. */
+	.state {
+		display: grid;
+		grid-template-columns: minmax(0, 0.6fr) minmax(0, 1.4fr);
+		align-content: start;
+		gap: 1.5rem;
+		padding: var(--pad);
+		border-top: 1px solid var(--line);
+	}
+
+	.state h3 {
+		margin-bottom: 0.5rem;
+		font-size: 0.8125rem;
+		font-weight: 400;
+		letter-spacing: 0;
+		color: var(--muted);
+	}
+
+	.ctx {
+		--bar: 4px;
+		--gap: 3px;
+		/* Tallest the stack gets: the task, step 2 and the four wrong steps. */
+		min-height: calc(11 * (var(--bar) + var(--gap)) - var(--gap));
+	}
+
+	.bar {
+		width: var(--w);
+		height: var(--bar);
+		max-height: 0;
+		margin-top: 0;
+		border-radius: 99px;
+		background: rgb(250 250 250 / 0.3);
+		opacity: 0;
+		transform: scaleX(0.3);
+		transform-origin: left;
+		transition:
+			max-height 0.25s,
+			margin-top 0.25s,
+			opacity 0.25s,
+			transform 0.35s var(--ease-out);
+	}
+
+	.bar.is-on {
+		max-height: var(--bar);
+		margin-top: var(--gap);
+		opacity: 1;
+		transform: none;
+	}
+
+	.bar.is-on:first-child {
+		margin-top: 0;
+	}
+
+	.bar--wrong {
+		background: rgb(255 122 102 / 0.75);
+	}
+
+	.bar--note {
+		background: var(--note);
+	}
+
+	.files {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: 0.4rem;
+		font-family: var(--font-code);
+		font-size: 0.6875rem;
+		line-height: 1.5;
+	}
+
+	.files li {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.75rem;
+		color: rgb(250 250 250 / 0.72);
+	}
+
+	.files span {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.files b {
+		font-weight: 500;
+		color: var(--ink);
+		opacity: 0;
+		transition: opacity 0.25s;
+	}
+
+	.files .is-wrong b {
+		color: var(--fail);
+	}
+
+	.files .is-changed b {
+		opacity: 1;
+	}
+
+	/* Controls: a scrubber with a tick where each stage begins, and a button per stage. */
+	.controls {
+		display: grid;
+		gap: 0.5rem;
+		padding: calc(var(--pad) - 0.5rem) var(--pad) calc(var(--pad) - 0.25rem);
+		border-top: 1px solid var(--line);
+	}
+
+	.track {
+		--thumb: 0.875rem;
+		position: relative;
+	}
+
+	/* Everything on the track is placed by the thumb's center, which travels (100% - thumb). */
+	.track i {
+		position: absolute;
+		top: 50%;
+		left: calc(var(--at) * (100% - var(--thumb)) + var(--thumb) / 2);
+		width: 1px;
+		height: 0.5rem;
+		background: rgb(250 250 250 / 0.28);
+		translate: -50% -50%;
+	}
+
+	.track input {
+		--p: 0;
+		--fill: calc(var(--p) * (100% - var(--thumb)) + var(--thumb) / 2);
+		position: relative;
+		display: block;
+		width: 100%;
+		height: 1.5rem;
+		margin: 0;
+		background: none;
+		appearance: none;
+		cursor: grab;
+	}
+
+	.track input:active {
+		cursor: grabbing;
+	}
+
+	.track input::-webkit-slider-runnable-track {
+		height: 2px;
+		border-radius: 2px;
+		background: linear-gradient(90deg, var(--ink) var(--fill), rgb(250 250 250 / 0.16) var(--fill));
+	}
+
+	.track input::-moz-range-track {
+		height: 2px;
+		border-radius: 2px;
+		background: rgb(250 250 250 / 0.16);
+	}
+
+	.track input::-moz-range-progress {
+		height: 2px;
+		border-radius: 2px;
+		background: var(--ink);
+	}
+
+	.track input::-webkit-slider-thumb {
+		width: var(--thumb);
+		height: var(--thumb);
+		margin-top: calc(var(--thumb) / -2 + 1px);
+		border-radius: 50%;
+		background: var(--ink);
+		box-shadow: 0 0 0 0 rgb(250 250 250 / 0.16);
+		appearance: none;
+		transition: box-shadow 0.2s;
+	}
+
+	.track input:is(:hover, :active)::-webkit-slider-thumb {
+		box-shadow: 0 0 0 0.4rem rgb(250 250 250 / 0.16);
+	}
+
+	.track input::-moz-range-thumb {
+		width: var(--thumb);
+		height: var(--thumb);
+		border: 0;
+		border-radius: 50%;
+		background: var(--ink);
+	}
+
+	/* A segmented control: its outer edge, not a label, sits on the content edge. */
+	.stages {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 0.125rem;
+		padding: 0.1875rem;
+		border-radius: 99px;
+		background: rgb(250 250 250 / 0.045);
+	}
+
+	.stages button {
+		height: 1.875rem;
+		padding: 0;
+		border: 0;
+		border-radius: 99px;
+		background: none;
+		color: var(--muted);
+		font: inherit;
+		font-size: 0.75rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition:
+			color 0.2s,
+			background 0.2s;
+	}
+
+	.stages button:hover {
+		color: var(--ink);
+	}
+
+	.stages button[aria-pressed='true'] {
+		background: var(--raised);
+		box-shadow: var(--edge);
+		color: var(--ink);
+	}
+
+	@media (min-width: 56rem) {
+		.readout {
+			min-height: 0;
+		}
+
+		.body {
+			grid-template-columns: minmax(0, 1fr) 17rem;
+		}
+
+		.canvas {
+			padding-block: 0.5rem;
+		}
+
+		.graph {
+			height: clamp(15rem, 24vw, 19rem);
+		}
+
+		.state {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 1.75rem;
+			border-top: 0;
+			border-left: 1px solid var(--line);
+		}
+
+		.ctx {
+			--bar: 6px;
+			--gap: 5px;
+		}
+
+		.files {
+			font-size: 0.75rem;
+		}
+
+		.stages {
+			display: flex;
+			justify-self: start;
+		}
+
+		.stages button {
+			padding-inline: 0.9rem;
+			font-size: 0.8125rem;
+		}
+	}
+
+	/* Arrives last in the page's entrance (see Hero.astro). */
+	@media (prefers-reduced-motion: no-preference) {
+		.frame {
+			animation: arrive 1.1s var(--ease-out) 0.55s both;
+		}
+	}
+
+	@keyframes arrive {
+		from {
+			opacity: 0;
+			transform: translateY(2.5rem);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.node__in,
+		.bar {
+			transition: none;
+		}
+	}
+</style>
