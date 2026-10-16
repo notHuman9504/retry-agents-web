@@ -4,8 +4,18 @@ import { site } from '../site';
 
 <footer class="footer" data-footer>
 	<div class="wrap" data-column>
-		<span>{site.name}</span>
-		<span>{new Date().getFullYear()}</span>
+		<a class="brand" href="/" aria-label={`${site.name}, home`}>
+			<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+				<circle class="ring" cx="12" cy="12" r="9.5"></circle>
+				<circle class="dot" cx="12" cy="12" r="3.75"></circle>
+			</svg>
+			<span>{site.name}</span>
+		</a>
+		<ul class="links">
+			<li><a href={site.repoUrl}>GitHub</a></li>
+			<li><a href="https://pi.dev">Pi</a></li>
+			<li>{new Date().getFullYear()}</li>
+		</ul>
 	</div>
 	<p class="mark" data-mark aria-hidden="true">{site.name}</p>
 </footer>
@@ -48,8 +58,47 @@ import { site } from '../site';
 
 	.wrap {
 		display: flex;
+		align-items: center;
 		justify-content: space-between;
+		gap: 1rem;
 		padding-block: 2rem;
+	}
+
+	/* The nav's mark, smaller and quieter: the page signs off with the same ring and note. */
+	.brand {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.55rem;
+		color: var(--ink);
+		font-weight: 600;
+		letter-spacing: -0.02em;
+		text-decoration: none;
+	}
+
+	.ring {
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 2;
+	}
+
+	.dot {
+		fill: var(--note);
+	}
+
+	.links {
+		display: flex;
+		gap: 1.5rem;
+	}
+
+	.links a {
+		text-decoration: none;
+		transition: color 0.2s;
+	}
+
+	@media (hover: hover) {
+		.links a:hover {
+			color: var(--ink);
+		}
 	}
 
 	/* The name, standing in the floor: the edge cuts it just above the baseline, and the type fades as it gets there.

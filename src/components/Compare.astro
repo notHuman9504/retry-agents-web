@@ -1,28 +1,8 @@
 ---
-import Tree from './Tree.astro';
+import ContextBars from './ContextBars.astro';
+import { sides } from './context';
 
-const kept = [58, 34, 82];
-const failed = [46, 71, 30, 88, 52, 64, 30, 93];
-const undoing = [40, 66, 36, 60, 44, 72]; // the extra messages spent putting the files back
-
-type Bar = { width: number; wrong?: boolean; note?: boolean };
-const plain = (width: number): Bar => ({ width });
-const wrong = (width: number): Bar => ({ width, wrong: true });
-
-const sides: { kind: string; name: string; text: string; bars: Bar[] }[] = [
-	{
-		kind: 'undo',
-		name: 'Undo by hand',
-		text: 'Files restored. Context still full.',
-		bars: [...kept.map(plain), ...[...failed, ...undoing].map(wrong)],
-	},
-	{
-		kind: 'rewind',
-		name: 'Rewind',
-		text: 'Files and context restored. One note added.',
-		bars: [...kept.map(plain), ...failed.map(wrong), { width: 76, note: true }],
-	},
-];
+const kinds = ['undo', 'rewind'] as const;
 ---
 
 <section class="compare wrap" id="why">
@@ -37,36 +17,26 @@ const sides: { kind: string; name: string; text: string; bars: Bar[] }[] = [
 		</p>
 	</div>
 
-	<div class="bento">
+	<div class="card split">
 		{
-			sides.map(({ kind, name, text, bars }) => (
-				<article class:list={['card', `card--${kind}`]} data-live>
-					<h3>{name}</h3>
-					<p>{text}</p>
-					<div class="window" aria-hidden="true">
-						<span>Context</span>
-						<ol>
-							{bars.map(({ width, wrong, note }, i) => (
-								<li class:list={{ wrong, note }} style={`--w: ${width}%; --i: ${i - kept.length}`} />
-							))}
-						</ol>
+			kinds.map((kind) => (
+				<article class="half">
+					<div class="card-head">
+						<i class:list={['key', sides[kind].key]} aria-hidden="true">
+							<svg viewBox="0 0 24 24">
+								<path d={sides[kind].icon} />
+							</svg>
+						</i>
+						<h3>{sides[kind].name}</h3>
+						<p>{sides[kind].text}</p>
 					</div>
+					<ContextBars kind={kind} />
 				</article>
 			))
 		}
-		<Tree />
+		<span class="versus" aria-hidden="true">vs</span>
 	</div>
 </section>
-
-<script>
-	// Each card's illustration plays only while the card is on screen.
-	const cards = document.querySelectorAll<HTMLElement>('[data-live]');
-	const watcher = new IntersectionObserver(
-		(entries) => entries.forEach((entry) => entry.target.classList.toggle('is-live', entry.isIntersecting)),
-		{ threshold: 0.35 },
-	);
-	cards.forEach((card) => watcher.observe(card));
-</script>
 
 <style>
 	.compare {
@@ -77,164 +47,56 @@ const sides: { kind: string; name: string; text: string; bars: Bar[] }[] = [
 		margin-top: 0.9em;
 	}
 
-	.bento {
+	/* One card cut in two: the same run, ending two ways. The kept steps line up across the cut. */
+	.split {
+		position: relative;
 		display: grid;
-		gap: 0.875rem;
 		margin-top: clamp(2.5rem, 6vw, 4.5rem);
 	}
 
-	.card {
+	.half {
 		display: grid;
-		grid-template-rows: auto auto 1fr;
-		justify-items: center;
-		padding: clamp(1.5rem, 3vw, 2.25rem) clamp(1.25rem, 3vw, 2.25rem) 0;
-		text-align: center;
+		gap: 1.5rem;
+		padding: var(--card-pad);
 	}
 
-	.card p {
-		margin-top: 0.3rem;
+	.half + .half {
+		border-top: 1px solid var(--line);
+	}
+
+	.half :global(.cw) {
+		height: clamp(14rem, 22vw, 16.5rem);
+		border-radius: 0.75rem;
+	}
+
+	/* A small dark key sitting on the cut. */
+	.versus {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		display: grid;
+		place-items: center;
+		width: 2.25rem;
+		height: 2.25rem;
+		border-radius: 0.55rem;
+		background: var(--key-dark);
+		box-shadow:
+			inset 0 1px 0 rgb(255 255 255 / 0.1),
+			0 0.2rem 0 var(--skirt-dark);
 		color: var(--muted);
-	}
-
-	/* The context window sits on the card's bottom edge and runs off it. */
-	.window {
-		--bar: 0.45rem;
-		--gap: 0.55rem;
-		width: min(100%, 23rem);
-		height: clamp(13rem, 24vw, 17rem);
-		margin-top: clamp(1.5rem, 3vw, 2.25rem);
-		padding: 1.1rem 1.25rem;
-		overflow: hidden;
-		border-radius: 1.1rem 1.1rem 0 0;
-		background: var(--well);
-		box-shadow: var(--edge);
-		text-align: left;
-	}
-
-	.window span {
-		display: block;
-		margin-bottom: 0.8rem;
-		font-size: 0.8125rem;
-		color: var(--muted);
-	}
-
-	/* Margins, not gap, so a bar that collapses leaves no hole behind. */
-	.window li {
-		width: var(--w);
-		height: var(--bar);
-		margin-top: var(--gap);
-		border-radius: 99px;
-		background: rgb(250 250 250 / 0.3);
-		transform-origin: left;
-	}
-
-	.window li:first-child {
-		margin-top: 0;
-	}
-
-	.window .wrong {
-		background: rgb(255 122 102 / 0.75);
-	}
-
-	.window .note {
-		background: var(--note);
-	}
-
-	/* Without motion each side shows where it ends up: everything, or just the note. */
-	.card--rewind .wrong {
-		display: none;
-	}
-
-	@media (prefers-reduced-motion: no-preference) {
-		/* Both sides pile up the failed attempt together. One keeps it; the other wipes it and leaves a note. */
-		.card--undo .wrong {
-			opacity: 0;
-		}
-
-		.card--undo.is-live .wrong {
-			animation: pile 9s calc(var(--i) * 0.14s) infinite both;
-		}
-
-		.card--rewind :is(.wrong, .note) {
-			display: block;
-			height: 0;
-			margin-top: 0;
-			opacity: 0;
-		}
-
-		.card--rewind.is-live .wrong {
-			animation: wiped 9s calc(var(--i) * 0.14s) infinite both;
-		}
-
-		.card--rewind.is-live .note {
-			animation: noted 9s infinite both;
-		}
-	}
-
-	@keyframes pile {
-		0% {
-			opacity: 0;
-			transform: scaleX(0.3);
-		}
-		3%,
-		70% {
-			opacity: 1;
-			transform: none;
-		}
-		76%,
-		100% {
-			opacity: 0;
-		}
-	}
-
-	@keyframes wiped {
-		0% {
-			height: 0;
-			margin-top: 0;
-			opacity: 0;
-			transform: scaleX(0.3);
-		}
-		3%,
-		38% {
-			height: var(--bar);
-			margin-top: var(--gap);
-			opacity: 1;
-			transform: none;
-		}
-		44%,
-		100% {
-			height: 0;
-			margin-top: 0;
-			opacity: 0;
-		}
-	}
-
-	@keyframes noted {
-		0%,
-		56% {
-			height: 0;
-			margin-top: 0;
-			opacity: 0;
-			transform: scaleX(0.3);
-		}
-		62%,
-		90% {
-			height: var(--bar);
-			margin-top: var(--gap);
-			opacity: 1;
-			transform: none;
-		}
-		96%,
-		100% {
-			height: var(--bar);
-			margin-top: var(--gap);
-			opacity: 0;
-		}
+		font-size: 0.75rem;
+		font-weight: 600;
+		translate: -50% -50%;
 	}
 
 	@media (min-width: 44rem) {
-		.bento {
+		.split {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		.half + .half {
+			border-top: 0;
+			border-left: 1px solid var(--line);
 		}
 	}
 </style>

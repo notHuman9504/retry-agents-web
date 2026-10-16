@@ -5,8 +5,8 @@ import { site } from '../site';
 
 <section class="closing wrap">
 	<h2>
-		<span>In development.</span>
-		<span>Starting with Pi.</span>
+		<span><span class="fade">In development.</span></span>
+		<span><span class="fade">Starting with</span> <kbd class="key pi">Pi</kbd><span class="fade">.</span></span>
 	</h2>
 	<div class="actions">
 		<Pill href={site.repoUrl} label="Follow on GitHub" primary />
@@ -23,7 +23,6 @@ import { site } from '../site';
 		text-align: center;
 	}
 
-	/* A grid, so the lines' negative margins don't collapse into each other. */
 	h2 {
 		display: grid;
 		font-size: clamp(2.25rem, 5.6vw, 4.5rem);
@@ -32,14 +31,28 @@ import { site } from '../site';
 		letter-spacing: -0.04em;
 	}
 
-	/* The padding gives the gradient room to cover descenders; the margin takes it back out of the layout. */
-	h2 span {
-		margin-block: -0.12em;
+	/* The gradient sits on the words only. Firefox clips anything inside text-clipped backgrounds,
+	   so the Pi key stands beside the words rather than inside them, as Ctrl + Z does in the hero.
+	   Inline padding gives the gradient room to cover descenders without moving the layout. */
+	.fade {
 		padding-block: 0.12em;
 		background: var(--ink-fade);
 		-webkit-background-clip: text;
 		background-clip: text;
 		color: transparent;
+	}
+
+	/* Pi is set as a key, the way the hero sets Ctrl + Z. */
+	.pi {
+		--depth: 0.08em;
+		height: 1.05em;
+		margin-inline: 0.06em 0.02em;
+		padding-inline: 0.14em;
+		border-radius: 0.16em;
+		font-weight: 700;
+		letter-spacing: -0.04em;
+		line-height: 1;
+		vertical-align: 0.04em;
 	}
 
 	.actions {

@@ -1,5 +1,12 @@
 ---
-const restored = ['2 files restored', 'Context back to step 2', '1 note added'];
+const REWIND = 'M11.5 7 V17 L5 12 Z M19 7 V17 L12.5 12 Z';
+
+// What the call hands back, each with the key it shows: the note is the one thing added, so it is lit.
+const restored = [
+	{ text: '2 files restored', icon: 'M7 4.5 H13.5 L17.5 8.5 V19.5 H7 Z M13.5 4.5 V8.5 H17.5' },
+	{ text: 'Context back to step 2', icon: 'M5 12 A7 7 0 1 0 7.1 7 M5 4.5 V8.5 H9' },
+	{ text: '1 note added', icon: 'M7 9 H17 M7 13 H13.5', note: true },
+];
 ---
 
 <section class="call wrap">
@@ -15,17 +22,26 @@ const restored = ['2 files restored', 'Context back to step 2', '1 note added'];
 	</div>
 
 	<div class="card panel" data-call aria-hidden="true">
+		<div class="card-head">
+			<i class="key key--note">
+				<svg viewBox="0 0 24 24"><path d={REWIND} /></svg>
+			</i>
+			<h3>Tool call</h3>
+			<p>Made by the agent, mid-run.</p>
+		</div>
 		<p class="bubble">
 			<code>rewind(2, <i>"Sleeps don't fix it. The expiry check is wrong."</i>)</code>
 		</p>
 		<ul>
 			{
-				restored.map((line, i) => (
+				restored.map(({ text, icon, note }, i) => (
 					<li style={`--i: ${i}`}>
-						<svg viewBox="0 0 16 16" width="16" height="16">
-							<path d="M3.5 8.5 L6.5 11.5 L12.5 4.5" />
-						</svg>
-						{line}
+						<i class:list={['key', note ? 'key--note' : 'key--dark']}>
+							<svg viewBox="0 0 24 24">
+								<path d={icon} />
+							</svg>
+						</i>
+						{text}
 					</li>
 				))
 			}
@@ -97,25 +113,32 @@ const restored = ['2 files restored', 'Context back to step 2', '1 note added'];
 
 	.panel {
 		display: grid;
-		align-content: center;
+		align-content: start;
 		gap: 1.5rem;
-		min-height: clamp(18rem, 34vw, 26rem);
-		padding: clamp(1.5rem, 4vw, 3.5rem);
+		padding: var(--card-pad);
 	}
 
+	/* The call as the agent writes it, on the page's colour like a terminal line. */
 	.bubble {
-		justify-self: end;
-		max-width: 24rem;
-		padding: 1rem 1.2rem;
-		border-radius: 1.25rem 1.25rem 0.35rem 1.25rem;
-		background: var(--raised);
-		box-shadow: var(--edge);
-		font-size: clamp(0.8125rem, 1.2vw, 0.9375rem);
+		display: flex;
+		gap: 0.7rem;
+		padding: 1rem 1.1rem;
+		border-radius: 0.75rem;
+		background: var(--bg);
+		box-shadow: inset 0 0 0 1px var(--line);
+		font-size: 0.875rem;
 		line-height: 1.6;
+	}
+
+	.bubble::before {
+		content: '\203A';
+		color: var(--ghost);
+		font-family: var(--font-code);
 	}
 
 	code {
 		font-family: var(--font-code);
+		font-variant-ligatures: none;
 	}
 
 	code i {
@@ -129,13 +152,14 @@ const restored = ['2 files restored', 'Context back to step 2', '1 note added'];
 
 	ul {
 		display: grid;
-		gap: 0.5rem;
+		gap: 0.75rem;
 	}
 
 	li {
 		display: flex;
 		align-items: center;
-		gap: 0.6rem;
+		gap: 0.8rem;
+		font-size: 0.9375rem;
 		transition:
 			opacity 0.5s,
 			transform 0.6s var(--ease-out);
@@ -147,10 +171,31 @@ const restored = ['2 files restored', 'Context back to step 2', '1 note added'];
 		transform: translateY(0.4rem);
 	}
 
+	li .key {
+		--depth: 0.18em;
+		flex: none;
+		width: 2.25em;
+		height: 2.25em;
+		border-radius: 0.5em;
+	}
+
+	li .key--dark {
+		color: var(--ink);
+	}
+
+	li .key--note {
+		color: var(--bg);
+	}
+
+	li svg {
+		width: 62%;
+		height: 62%;
+	}
+
 	li path {
 		fill: none;
-		stroke: var(--muted);
-		stroke-width: 1.75;
+		stroke: currentColor;
+		stroke-width: 2;
 		stroke-linecap: round;
 		stroke-linejoin: round;
 	}
