@@ -34,6 +34,20 @@
 	initial-value: 0;
 }
 
+/* How far a keycap is pressed, 0 to 1, from two sources that never fight: the hero's loop strikes it,
+   and the pointer holds it down. Registered so both can be animated. */
+@property --struck {
+	syntax: '<number>';
+	inherits: false;
+	initial-value: 0;
+}
+
+@property --held {
+	syntax: '<number>';
+	inherits: false;
+	initial-value: 0;
+}
+
 *,
 *::before,
 *::after {
@@ -142,10 +156,6 @@ a {
 		scale 0.2s var(--ease-out);
 }
 
-.pill:hover {
-	background: #383838;
-}
-
 .pill:active {
 	scale: 0.97;
 }
@@ -154,18 +164,10 @@ a {
 	transition: translate 0.3s var(--ease-out);
 }
 
-.pill:hover svg {
-	translate: 0 2px;
-}
-
 .pill--primary {
 	background: var(--ink);
 	box-shadow: none;
 	color: var(--bg);
-}
-
-.pill--primary:hover {
-	background: #fff;
 }
 
 .pill--small {
@@ -193,37 +195,61 @@ a {
 	translate: 0 110%;
 }
 
-.pill:hover .roll > span {
-	translate: 0 -110%;
-}
+/* Hover only where there is a real pointer: on touch, a tap would leave the pill stuck mid-hover. */
+@media (hover: hover) {
+	.pill:hover {
+		background: #383838;
+	}
 
-.pill:hover .roll > span + span {
-	translate: 0;
+	.pill--primary:hover {
+		background: #fff;
+	}
+
+	.pill:hover svg {
+		translate: 0 2px;
+	}
+
+	.pill:hover .roll > span {
+		translate: 0 -110%;
+	}
+
+	.pill:hover .roll > span + span {
+		translate: 0;
+	}
 }
 
 /* A keycap: a pale face standing on a darker skirt. Pressing it sinks the face into the skirt.
-   Sizes are in em, so a key scales with the font size it is set at. */
+   Sizes are in em, so a key scales with the font size it is set at. Every key presses the same way,
+   under the pointer or on a tap, and that press composes with any loop striking it. */
 .key {
 	--skirt: #8f8f8a;
 	--depth: 0.12em;
 	--lift: 0.3em;
 	--blur: 0.6em;
-	--up:
-		inset 0 1px 0 rgb(255 255 255 / 0.85), 0 var(--depth) 0 var(--skirt),
-		0 calc(var(--depth) + var(--lift)) var(--blur) rgb(0 0 0 / 0.45);
-	--down:
-		inset 0 1px 0 rgb(255 255 255 / 0.85), 0 calc(var(--depth) * 0.25) 0 var(--skirt),
-		0 calc(var(--depth) * 0.25 + var(--lift) * 0.4) calc(var(--blur) * 0.5) rgb(0 0 0 / 0.45);
+	--press: max(var(--struck), var(--held));
 	display: inline-grid;
 	place-items: center;
 	border-radius: 0.22em;
 	background: linear-gradient(#fbfbf9, #e6e6e2);
-	box-shadow: var(--up);
+	box-shadow:
+		inset 0 1px 0 rgb(255 255 255 / 0.85),
+		0 calc(var(--depth) * (1 - 0.75 * var(--press))) 0 var(--skirt),
+		0 calc((var(--depth) + var(--lift)) * (1 - 0.6 * var(--press))) calc(var(--blur) * (1 - 0.5 * var(--press)))
+			rgb(0 0 0 / 0.45);
 	color: var(--bg);
 	font: inherit;
-	transition:
-		translate 0.15s var(--ease-out),
-		box-shadow 0.15s var(--ease-out);
+	translate: 0 calc(var(--depth) * 0.75 * var(--press));
+	transition: --held 0.15s var(--ease-out);
+}
+
+.key:active {
+	--held: 1;
+}
+
+@media (hover: hover) {
+	.key:hover {
+		--held: 1;
+	}
 }
 
 .key--fail {

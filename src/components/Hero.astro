@@ -288,17 +288,9 @@ const steps = [
 		}
 	}
 
-	@media (hover: hover) {
-		.big:hover {
-			translate: 0 calc(var(--depth) * 0.75);
-			box-shadow: var(--down);
-		}
-	}
-
 	@media (prefers-reduced-motion: no-preference) {
 		/* The entrance: the keys drop onto the desk, then the rest rises in. */
-		.combo .key,
-		.big {
+		.combo .key {
 			animation: drop 0.8s var(--ease-spring) both;
 		}
 
@@ -325,20 +317,17 @@ const steps = [
 			animation-delay: 0.4s;
 		}
 
-		.big {
-			animation-delay: 0.2s;
-		}
-
 		.steps {
 			animation-delay: 0.5s;
 		}
 
-		/* Then the story plays on a loop: each key is struck in turn, and the big Z goes down with the rewind. */
+		/* Then the story plays on a loop: each key is struck in turn, and the big Z goes down with the rewind.
+		   The loop never stops for a hover, so the Z stays in time with the keys below it. */
 		.step .key {
 			animation: strike 6s calc(1.4s + var(--n) * 0.9s) infinite;
 		}
 
-		.big:not(:hover) {
+		.big {
 			animation:
 				drop 0.8s var(--ease-spring) 0.2s both,
 				strike 6s 2.3s infinite;
@@ -363,13 +352,11 @@ const steps = [
 		0%,
 		7%,
 		100% {
-			translate: 0;
-			box-shadow: var(--up);
+			--struck: 0;
 		}
 		2.5%,
 		4% {
-			translate: 0 calc(var(--depth) * 0.75);
-			box-shadow: var(--down);
+			--struck: 1;
 		}
 	}
 </style>
