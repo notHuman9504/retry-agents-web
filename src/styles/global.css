@@ -34,15 +34,8 @@
 	initial-value: 0;
 }
 
-/* How far a keycap is pressed, 0 to 1, from two sources that never fight: the hero's loop strikes it,
-   and the pointer holds it down. Registered so both can be animated. */
-@property --struck {
-	syntax: '<number>';
-	inherits: false;
-	initial-value: 0;
-}
-
-@property --held {
+/* Registered so it can be transitioned: how far a keycap is pressed, 0 to 1. */
+@property --press {
 	syntax: '<number>';
 	inherits: false;
 	initial-value: 0;
@@ -220,13 +213,12 @@ a {
 
 /* A keycap: a pale face standing on a darker skirt. Pressing it sinks the face into the skirt.
    Sizes are in em, so a key scales with the font size it is set at. Every key presses the same way,
-   under the pointer or on a tap, and that press composes with any loop striking it. */
+   under the pointer or on a tap. */
 .key {
 	--skirt: #8f8f8a;
 	--depth: 0.12em;
 	--lift: 0.3em;
 	--blur: 0.6em;
-	--press: max(var(--struck), var(--held));
 	display: inline-grid;
 	place-items: center;
 	border-radius: 0.22em;
@@ -239,16 +231,16 @@ a {
 	color: var(--bg);
 	font: inherit;
 	translate: 0 calc(var(--depth) * 0.75 * var(--press));
-	transition: --held 0.15s var(--ease-out);
+	transition: --press 0.15s var(--ease-out);
 }
 
 .key:active {
-	--held: 1;
+	--press: 1;
 }
 
 @media (hover: hover) {
 	.key:hover {
-		--held: 1;
+		--press: 1;
 	}
 }
 

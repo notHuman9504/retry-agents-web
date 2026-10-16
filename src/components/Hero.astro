@@ -45,7 +45,7 @@ const steps = [
 								<path d="M3 8 H13 M9 4 L13 8 L9 12" />
 							</svg>
 						)}
-						<div class="step" style={`--n: ${i}`}>
+						<div class="step">
 							<i class:list={['key', `key--${key}`, `step__key--${key}`]}>
 								<svg viewBox="0 0 24 24">
 									<path d={icon} />
@@ -321,16 +321,8 @@ const steps = [
 			animation-delay: 0.5s;
 		}
 
-		/* Then the story plays on a loop: each key is struck in turn, and the big Z goes down with the rewind.
-		   The loop never stops for a hover, so the Z stays in time with the keys below it. */
-		.step .key {
-			animation: strike 6s calc(1.4s + var(--n) * 0.9s) infinite;
-		}
-
 		.big {
-			animation:
-				drop 0.8s var(--ease-spring) 0.2s both,
-				strike 6s 2.3s infinite;
+			animation: drop 0.8s var(--ease-spring) 0.2s both;
 		}
 	}
 
@@ -345,18 +337,6 @@ const steps = [
 		from {
 			opacity: 0;
 			transform: translateY(0.75rem);
-		}
-	}
-
-	@keyframes strike {
-		0%,
-		7%,
-		100% {
-			--struck: 0;
-		}
-		2.5%,
-		4% {
-			--struck: 1;
 		}
 	}
 </style>
