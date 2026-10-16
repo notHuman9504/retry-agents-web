@@ -12,6 +12,15 @@
 	--edge: inset 0 1px 0 rgb(255 255 255 / 0.06);
 	/* Large type is lit from above: white at the top, settling to a soft grey. */
 	--ink-fade: linear-gradient(#fff 35%, #b2b2b2);
+	/* Keycap faces, each with the darker skirt it stands on. */
+	--key-pale: linear-gradient(#fbfbf9, #e6e6e2);
+	--skirt-pale: #8f8f8a;
+	--key-fail: linear-gradient(#ff8b78, #f4705b);
+	--skirt-fail: #c24a39;
+	--key-note: linear-gradient(#ffe06a, #f5cc3a);
+	--skirt-note: #c29b22;
+	--key-dark: linear-gradient(#3a3a3a, #2a2a2a);
+	--skirt-dark: #0b0b0b;
 
 	--font: 'Instrument Sans Variable', system-ui, sans-serif;
 	--font-code: 'Geist Mono Variable', ui-monospace, monospace;
@@ -132,99 +141,22 @@ a {
 	box-shadow: var(--edge);
 }
 
-.pill {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.5rem;
-	height: 2.75rem;
-	padding-inline: 1.25rem;
-	border-radius: 99px;
-	background: var(--raised);
-	box-shadow: var(--edge);
-	color: var(--ink);
-	font-weight: 500;
-	text-decoration: none;
-	transition:
-		background 0.2s,
-		scale 0.2s var(--ease-out);
-}
-
-.pill:active {
-	scale: 0.97;
-}
-
-.pill svg {
-	transition: translate 0.3s var(--ease-out);
-}
-
-.pill--primary {
-	background: var(--ink);
-	box-shadow: none;
-	color: var(--bg);
-}
-
-.pill--small {
-	height: 2.25rem;
-	padding-inline: 1rem;
-	font-size: 0.9375rem;
-}
-
-.pill:focus-visible {
-	border-radius: 99px;
-}
-
-/* A pill's label rolls over on hover: the text leaves upward as its copy arrives from below. */
-.roll {
-	display: inline-grid;
-	overflow: hidden;
-}
-
-.roll > span {
-	grid-area: 1 / 1;
-	transition: translate 0.5s var(--ease-out);
-}
-
-.roll > span + span {
-	translate: 0 110%;
-}
-
-/* Hover only where there is a real pointer: on touch, a tap would leave the pill stuck mid-hover. */
-@media (hover: hover) {
-	.pill:hover {
-		background: #383838;
-	}
-
-	.pill--primary:hover {
-		background: #fff;
-	}
-
-	.pill:hover svg {
-		translate: 0 2px;
-	}
-
-	.pill:hover .roll > span {
-		translate: 0 -110%;
-	}
-
-	.pill:hover .roll > span + span {
-		translate: 0;
-	}
-}
-
 /* A keycap: a pale face standing on a darker skirt. Pressing it sinks the face into the skirt.
    Sizes are in em, so a key scales with the font size it is set at. Every key presses the same way,
    under the pointer or on a tap. */
 .key {
-	--skirt: #8f8f8a;
+	--face: var(--key-pale);
+	--skirt: var(--skirt-pale);
+	--rim: rgb(255 255 255 / 0.85);
 	--depth: 0.12em;
 	--lift: 0.3em;
 	--blur: 0.6em;
 	display: inline-grid;
 	place-items: center;
 	border-radius: 0.22em;
-	background: linear-gradient(#fbfbf9, #e6e6e2);
+	background: var(--face);
 	box-shadow:
-		inset 0 1px 0 rgb(255 255 255 / 0.85),
+		inset 0 1px 0 var(--rim),
 		0 calc(var(--depth) * (1 - 0.75 * var(--press))) 0 var(--skirt),
 		0 calc((var(--depth) + var(--lift)) * (1 - 0.6 * var(--press))) calc(var(--blur) * (1 - 0.5 * var(--press)))
 			rgb(0 0 0 / 0.45);
@@ -245,13 +177,43 @@ a {
 }
 
 .key--fail {
-	--skirt: #c24a39;
-	background: linear-gradient(#ff8b78, #f4705b);
+	--face: var(--key-fail);
+	--skirt: var(--skirt-fail);
 }
 
 .key--note {
-	--skirt: #c29b22;
-	background: linear-gradient(#ffe06a, #f5cc3a);
+	--face: var(--key-note);
+	--skirt: var(--skirt-note);
+}
+
+.key--dark {
+	--face: var(--key-dark);
+	--skirt: var(--skirt-dark);
+	--rim: rgb(255 255 255 / 0.1);
+	color: var(--muted);
+}
+
+/* Buttons are keycaps too: a wide key with a label. The main action is a pale key, the rest are dark. */
+.pill {
+	--depth: 0.22em;
+	display: inline-flex;
+	gap: 0.5rem;
+	height: 2.75rem;
+	padding-inline: 1.25rem;
+	border-radius: 0.7em;
+	font-weight: 500;
+	text-decoration: none;
+}
+
+.pill.key--dark {
+	color: var(--ink);
+}
+
+.pill--small {
+	--depth: 0.18em;
+	height: 2.25rem;
+	padding-inline: 1rem;
+	font-size: 0.9375rem;
 }
 
 /* Two-tone statements: a bright line, then a quiet one at the same size. */
@@ -277,10 +239,4 @@ a {
 	transition:
 		opacity 0.25s linear,
 		filter 0.25s linear;
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.roll > span {
-		transition: none;
-	}
 }

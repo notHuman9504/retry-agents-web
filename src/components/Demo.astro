@@ -4,15 +4,36 @@ const VIEW = { w: 700, h: 300 };
 const WRONG_PATH = 'M170 130 C 250 130, 270 226, 400 232 S 580 240, 660 240';
 
 // `from` is where each stage begins on the scrubber, as a fraction of the whole run.
+// Each stage is a key: `key` is the colour it lights up in while its stage is showing.
 const stages = [
-	{ name: 'Checkpoint', from: 0, text: 'Every step is saved: files and conversation.' },
-	{ name: 'Wrong turn', from: 0.2, text: 'The agent takes a wrong turn. Tests keep failing.' },
+	{
+		name: 'Checkpoint',
+		from: 0,
+		key: 'pass',
+		icon: 'M12 5.5 A6.5 6.5 0 1 1 11.99 5.5 Z M12 10 A2 2 0 1 1 11.99 10 Z',
+		text: 'Every step saves the files and the conversation.',
+	},
+	{
+		name: 'Wrong turn',
+		from: 0.2,
+		key: 'fail',
+		icon: 'M7 7 L17 17 M17 7 L7 17',
+		text: 'The agent heads down the wrong path. Tests keep failing.',
+	},
 	{
 		name: 'Rewind',
 		from: 0.46,
-		text: 'It rewinds itself. Files and context go back, and a note carries the lesson.',
+		key: 'note',
+		icon: 'M11.5 7 V17 L5 12 Z M19 7 V17 L12.5 12 Z',
+		text: 'It rewinds itself. Files and context go back; a note keeps the lesson.',
 	},
-	{ name: 'Retry', from: 0.75, text: 'It tries again, knowing why.' },
+	{
+		name: 'Retry',
+		from: 0.75,
+		key: 'pass',
+		icon: 'M6 12.5 L10.5 17 L18.5 7.5',
+		text: 'It tries again, knowing why. Tests pass.',
+	},
 ];
 
 const nodes = [
@@ -41,7 +62,12 @@ const context = [
 ---
 
 <section class="demo wrap" id="demo" data-demo>
-	<div class="frame card">
+	<header data-reveal>
+		<h2 class="statement"><span>Watch it rewind.</span></h2>
+		<p class="statement statement--quiet"><span>Drag the run, or press a key.</span></p>
+	</header>
+
+	<div class="frame">
 		<div class="window">
 			<p class="readout" data-readout data-kind="task" aria-hidden="true">
 				<span class="readout__count" data-count>01</span>
@@ -116,8 +142,16 @@ const context = [
 			</div>
 
 			<div class="controls">
-				<div class="track">
-					{stages.slice(1).map(({ from }) => <i style={`--at: ${from}`} />)}
+				<p class="caption" data-caption data-captions={JSON.stringify(stages.map(({ name, text }) => ({ name, text })))}>
+					<b data-caption-name>{stages[0].name}</b>
+					<span data-caption-text>{stages[0].text}</span>
+				</p>
+				<div class="track" data-track>
+					{
+						stages.map(({ key, from }, i) => (
+							<i class:list={['segment', `segment--${key}`]} style={`--from: ${from}; --to: ${stages[i + 1]?.from ?? 1}`} />
+						))
+					}
 					<input
 						type="range"
 						min="0"
@@ -127,20 +161,24 @@ const context = [
 						data-scrub
 					/>
 				</div>
-				<div class="stages" role="group" aria-label="Jump to a stage">
-					{
-						stages.map(({ name }, i) => (
-							<button type="button" aria-pressed={i === 0} data-stage={i}>
-								{name}
-							</button>
-						))
-					}
-				</div>
 			</div>
 		</div>
-		<p class="caption" data-caption data-captions={JSON.stringify(stages.map((stage) => stage.text))}>
-			{stages[0].text}
-		</p>
+
+		<div class="deck" role="group" aria-label="Jump to a stage">
+			{
+				stages.map(({ name, key, icon }, i) => (
+					<button type="button" class="stage" aria-pressed={i === 0} data-stage={i} data-key={key}>
+						<span class="key key--dark">
+							<small aria-hidden="true">{i + 1}</small>
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<path d={icon} />
+							</svg>
+						</span>
+						{name}
+					</button>
+				))
+			}
+		</div>
 	</div>
 </section>
 
@@ -156,7 +194,9 @@ const context = [
 		retry: [0.75, 0.92],
 	} as const;
 	const STAGE_STARTS = [0, PHASE.wrong[0], PHASE.call, PHASE.retry[0]];
-	const STAGE_ENDS = [PHASE.main[1], PHASE.call, 0.74, 1]; // where each stage's picture is complete
+	// Where each stage's picture is complete. The wrong turn stops just short of the call, with every
+	// wrong step drawn: at the call itself the rewind has already begun.
+	const STAGE_ENDS = [PHASE.main[1], PHASE.call - 0.0002, 0.74, 1];
 	const BEATS: Record<string, { kind: string; cmd: string; status?: string }> = {
 		task: { kind: 'task', cmd: 'Fix the flaky login test' },
 		s2: { kind: 'fail', cmd: 'npm test', status: '1 failing' },
@@ -210,8 +250,11 @@ const context = [
 		const status = find<HTMLElement>('[data-status]');
 		const scrub = find<HTMLInputElement>('[data-scrub]');
 		const stageButtons = all<HTMLButtonElement>('[data-stage]');
+		const track = find<HTMLElement>('[data-track]');
 		const caption = find<HTMLElement>('[data-caption]');
-		const captions: string[] = JSON.parse(caption.dataset.captions!);
+		const captionName = find<HTMLElement>('[data-caption-name]');
+		const captionText = find<HTMLElement>('[data-caption-text]');
+		const captions: { name: string; text: string }[] = JSON.parse(caption.dataset.captions!);
 		const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 
 		const lengths = new Map([main, wrong, retry].map((path) => [path, path.getTotalLength()]));
@@ -246,6 +289,13 @@ const context = [
 		addEventListener('pointerup', release);
 		addEventListener('pointercancel', release);
 		stageButtons.forEach((button, i) => button.addEventListener('click', () => take(STAGE_ENDS[i])));
+		// The stage keys are real keys too: 1 to 4 jump to a stage while the demo is on screen.
+		addEventListener('keydown', (event) => {
+			const index = Number(event.key) - 1;
+			if (!inView || !stageButtons[index] || event.metaKey || event.ctrlKey || event.altKey) return;
+			if ((event.target as HTMLElement).closest('input, textarea, [contenteditable]')) return;
+			take(STAGE_ENDS[index]);
+		});
 		document.addEventListener('visibilitychange', wake);
 		new ResizeObserver(fit).observe(graph);
 		new IntersectionObserver(([entry]) => {
@@ -363,7 +413,7 @@ const context = [
 			if (current !== stage) enter(current);
 
 			if (!dragging) scrub.value = String(Math.round(p * 1000));
-			scrub.style.setProperty('--p', String(p));
+			track.style.setProperty('--p', String(p));
 		}
 
 		function say(id: string) {
@@ -377,7 +427,9 @@ const context = [
 			const first = stage === -1;
 			stage = index;
 			stageButtons.forEach((button, i) => button.setAttribute('aria-pressed', String(i === index)));
-			caption.textContent = captions[index];
+			captionName.textContent = captions[index].name;
+			captionText.textContent = captions[index].text;
+			track.dataset.key = stageButtons[index].dataset.key;
 			if (first || reduced.matches) return;
 			caption.animate(
 				[{ opacity: 0, transform: 'translateY(0.3rem)' }, { opacity: 1, transform: 'none' }],
@@ -429,47 +481,48 @@ const context = [
 
 <style>
 	.demo {
-		scroll-margin-top: 1rem;
+		scroll-margin-top: 4.5rem;
+	}
+
+	header {
+		margin-bottom: clamp(2rem, 5vw, 3.5rem);
 	}
 
 	.frame {
 		--pad: clamp(1rem, 2.2vw, 1.5rem);
-		padding: clamp(0.5rem, 1.4vw, 1rem);
-		padding-bottom: 0;
 	}
 
-	/* Three bands split by hairlines: the tool call, the run, the controls. */
+	/* Three bands split by hairlines: the tool call, the run, the scrubber. */
 	.window {
+		--panel: var(--surface);
 		overflow: hidden;
-		border-radius: calc(var(--card) - clamp(0.5rem, 1.4vw, 1rem));
-		background: var(--well);
-		box-shadow: var(--edge);
-	}
-
-	.caption {
-		display: grid;
-		place-items: center;
-		min-height: 4.5rem;
-		padding: 1rem var(--pad);
-		color: var(--muted);
-		text-align: center;
+		border-radius: 1rem;
+		background: var(--panel);
+		box-shadow:
+			var(--edge),
+			0 0 0 1px var(--line);
 	}
 
 	/* Readout: the tool call at the playhead. */
 	.readout {
 		display: flex;
-		align-items: baseline;
+		align-items: center;
 		gap: 0.85rem;
-		min-height: calc(3.2em + 2 * var(--pad) - 0.5rem);
+		/* Two lines' room on narrow screens, where the rewind call wraps. */
+		min-height: calc(2 * var(--line-box) + 2 * (var(--pad) - 0.25rem) + 1px);
 		padding: calc(var(--pad) - 0.25rem) var(--pad);
 		border-bottom: 1px solid var(--line);
 		font-family: var(--font-code);
-		font-size: clamp(0.75rem, 1.05vw, 0.875rem);
-		line-height: 1.6;
+		font-size: 0.8125rem;
+		font-variant-ligatures: none;
+		/* A fixed line box, so the task's larger sans line is no taller than a command. */
+		--line-box: 1.5rem;
+		line-height: var(--line-box);
 	}
 
 	.readout__count {
 		color: var(--muted);
+		opacity: 0.7;
 		font-variant-numeric: tabular-nums;
 	}
 
@@ -477,9 +530,11 @@ const context = [
 		font: inherit;
 	}
 
+	/* The task is the person's words, not a command: set in the page's face. */
 	.readout[data-kind='task'] code {
 		font-family: var(--font);
-		font-size: 1.14em;
+		font-size: 0.9375rem;
+		font-weight: 500;
 	}
 
 	.readout[data-kind='task'] code::before {
@@ -497,11 +552,15 @@ const context = [
 
 	.readout__status {
 		flex: none;
-		font-family: var(--font);
+		color: var(--muted);
 	}
 
 	.readout[data-kind='fail'] .readout__status {
 		color: var(--fail);
+	}
+
+	.readout[data-kind='pass'] .readout__status {
+		color: var(--ink);
 	}
 
 	.body {
@@ -520,7 +579,7 @@ const context = [
 		content: '';
 		position: absolute;
 		inset: 0;
-		background-image: radial-gradient(rgb(255 255 255 / 0.075) 1px, transparent 1.5px);
+		background-image: radial-gradient(rgb(255 255 255 / 0.06) 1px, transparent 1.5px);
 		background-size: 1.5rem 1.5rem;
 		background-position: center;
 		mask-image: radial-gradient(ellipse 75% 85% at 40% 50%, #000 20%, transparent 78%);
@@ -611,7 +670,7 @@ const context = [
 	}
 
 	.node__ring {
-		fill: var(--well);
+		fill: var(--panel);
 		stroke: var(--ink);
 		stroke-width: 1.5;
 		transition: stroke 0.25s;
@@ -680,9 +739,9 @@ const context = [
 	}
 
 	.state h3 {
-		margin-bottom: 0.5rem;
-		font-size: 0.8125rem;
-		font-weight: 400;
+		margin-bottom: 0.65rem;
+		font-size: 0.75rem;
+		font-weight: 500;
 		letter-spacing: 0;
 		color: var(--muted);
 	}
@@ -735,7 +794,8 @@ const context = [
 		grid-template-columns: minmax(0, 1fr);
 		gap: 0.4rem;
 		font-family: var(--font-code);
-		font-size: 0.6875rem;
+		font-size: 0.75rem;
+		font-variant-ligatures: none;
 		line-height: 1.5;
 	}
 
@@ -743,7 +803,7 @@ const context = [
 		display: flex;
 		justify-content: space-between;
 		gap: 0.75rem;
-		color: rgb(250 250 250 / 0.72);
+		color: rgb(250 250 250 / 0.78);
 	}
 
 	.files span {
@@ -768,37 +828,85 @@ const context = [
 		opacity: 1;
 	}
 
-	/* Controls: a scrubber with a tick where each stage begins, and a button per stage. */
+	/* Controls: what the current stage means, over a scrubber split into the four stages. */
 	.controls {
 		display: grid;
-		gap: 0.5rem;
-		padding: calc(var(--pad) - 0.5rem) var(--pad) calc(var(--pad) - 0.25rem);
+		gap: 0.6rem;
+		padding: calc(var(--pad) - 0.25rem) var(--pad) calc(var(--pad) - 0.5rem);
 		border-top: 1px solid var(--line);
 	}
 
+	/* Room for the longest caption, so the scrubber doesn't move as captions change. */
+	.caption {
+		min-height: 4.5em;
+		color: var(--muted);
+		font-size: 0.875rem;
+		line-height: 1.5;
+	}
+
+	.caption b {
+		margin-right: 0.5rem;
+		color: var(--ink);
+		font-weight: 500;
+	}
+
 	.track {
-		--thumb: 0.875rem;
+		--thumb: 1rem;
+		--gap: 3px;
+		--p: 0;
+		--head: var(--ink);
 		position: relative;
 	}
 
-	/* Everything on the track is placed by the thumb's center, which travels (100% - thumb). */
-	.track i {
-		position: absolute;
-		top: 50%;
-		left: calc(var(--at) * (100% - var(--thumb)) + var(--thumb) / 2);
-		width: 1px;
-		height: 0.5rem;
-		background: rgb(250 250 250 / 0.28);
-		translate: -50% -50%;
+	.track[data-key='fail'] {
+		--head: var(--fail);
 	}
 
+	.track[data-key='note'] {
+		--head: var(--note);
+	}
+
+	/* Each stage is a segment in its key's colour, filling as the run passes through it.
+	   Everything on the track is placed by the thumb's center, which travels (100% - thumb). */
+	.segment {
+		position: absolute;
+		top: 50%;
+		left: calc(var(--from) * (100% - var(--thumb)) + var(--thumb) / 2);
+		width: calc((var(--to) - var(--from)) * (100% - var(--thumb)) - var(--gap));
+		height: 6px;
+		overflow: hidden;
+		border-radius: 99px;
+		background: rgb(250 250 250 / 0.1);
+		translate: 0 -50%;
+	}
+
+	.segment:last-of-type {
+		width: calc((var(--to) - var(--from)) * (100% - var(--thumb)));
+	}
+
+	.segment::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: var(--ink);
+		transform-origin: left;
+		scale: clamp(0, (var(--p) - var(--from)) / (var(--to) - var(--from)), 1) 1;
+	}
+
+	.segment--fail::after {
+		background: var(--fail);
+	}
+
+	.segment--note::after {
+		background: var(--note);
+	}
+
+	/* The native track is invisible; only its thumb shows, ringed in the window's colour so it cuts into the segments. */
 	.track input {
-		--p: 0;
-		--fill: calc(var(--p) * (100% - var(--thumb)) + var(--thumb) / 2);
 		position: relative;
 		display: block;
 		width: 100%;
-		height: 1.5rem;
+		height: 1.75rem;
 		margin: 0;
 		background: none;
 		appearance: none;
@@ -810,36 +918,27 @@ const context = [
 	}
 
 	.track input::-webkit-slider-runnable-track {
-		height: 2px;
-		border-radius: 2px;
-		background: linear-gradient(90deg, var(--ink) var(--fill), rgb(250 250 250 / 0.16) var(--fill));
+		height: 6px;
+		background: none;
 	}
 
 	.track input::-moz-range-track {
-		height: 2px;
-		border-radius: 2px;
-		background: rgb(250 250 250 / 0.16);
-	}
-
-	.track input::-moz-range-progress {
-		height: 2px;
-		border-radius: 2px;
-		background: var(--ink);
+		background: none;
 	}
 
 	.track input::-webkit-slider-thumb {
 		width: var(--thumb);
 		height: var(--thumb);
-		margin-top: calc(var(--thumb) / -2 + 1px);
+		margin-top: calc(var(--thumb) / -2 + 3px);
 		border-radius: 50%;
-		background: var(--ink);
-		box-shadow: 0 0 0 0 rgb(250 250 250 / 0.16);
+		background: var(--head);
+		box-shadow:
+			0 0 0 3px var(--panel),
+			0 0 0 3px rgb(250 250 250 / 0.14);
 		appearance: none;
-		transition: box-shadow 0.2s;
-	}
-
-	.track input:is(:hover, :active)::-webkit-slider-thumb {
-		box-shadow: 0 0 0 0.4rem rgb(250 250 250 / 0.16);
+		transition:
+			background 0.2s,
+			box-shadow 0.2s;
 	}
 
 	.track input::-moz-range-thumb {
@@ -847,43 +946,136 @@ const context = [
 		height: var(--thumb);
 		border: 0;
 		border-radius: 50%;
-		background: var(--ink);
+		background: var(--head);
+		box-shadow:
+			0 0 0 3px var(--panel),
+			0 0 0 3px rgb(250 250 250 / 0.14);
+		transition:
+			background 0.2s,
+			box-shadow 0.2s;
 	}
 
-	/* A segmented control: its outer edge, not a label, sits on the content edge. */
-	.stages {
+	.track input:active::-webkit-slider-thumb {
+		box-shadow:
+			0 0 0 3px var(--panel),
+			0 0 0 0.6rem rgb(250 250 250 / 0.14);
+	}
+
+	.track input:active::-moz-range-thumb {
+		box-shadow:
+			0 0 0 3px var(--panel),
+			0 0 0 0.6rem rgb(250 250 250 / 0.14);
+	}
+
+	@media (hover: hover) {
+		.track input:hover::-webkit-slider-thumb {
+			box-shadow:
+				0 0 0 3px var(--panel),
+				0 0 0 0.6rem rgb(250 250 250 / 0.14);
+		}
+
+		.track input:hover::-moz-range-thumb {
+			box-shadow:
+				0 0 0 3px var(--panel),
+				0 0 0 0.6rem rgb(250 250 250 / 0.14);
+		}
+	}
+
+	/* The stage keys: dark until their stage is showing, then lit in its colour and held down. */
+	.deck {
 		display: grid;
 		grid-template-columns: repeat(4, minmax(0, 1fr));
-		gap: 0.125rem;
-		padding: 0.1875rem;
-		border-radius: 99px;
-		background: rgb(250 250 250 / 0.045);
+		justify-content: center;
+		margin-top: clamp(2rem, 4vw, 2.75rem);
 	}
 
-	.stages button {
-		height: 1.875rem;
+	.stage {
+		display: grid;
+		justify-items: center;
+		gap: 0.9rem;
 		padding: 0;
 		border: 0;
-		border-radius: 99px;
 		background: none;
 		color: var(--muted);
 		font: inherit;
-		font-size: 0.75rem;
+		font-size: 0.875rem;
 		font-weight: 500;
 		cursor: pointer;
-		transition:
-			color 0.2s,
-			background 0.2s;
+		transition: color 0.2s;
 	}
 
-	.stages button:hover {
+	.stage .key {
+		--depth: 0.3em;
+		position: relative;
+		width: 3.75em;
+		height: 3.75em;
+		border-radius: 0.6em;
+		font-size: 1rem;
+	}
+
+	/* The number legend, as printed in a key's corner: it is also the shortcut. */
+	.stage small {
+		position: absolute;
+		top: 0.45rem;
+		left: 0.55rem;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		line-height: 1;
+		opacity: 0.6;
+	}
+
+	.stage svg {
+		width: 42%;
+		height: 42%;
+	}
+
+	.stage path {
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 2.25;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	.stage[data-key='note'] path {
+		fill: currentColor;
+		stroke-width: 1.25;
+	}
+
+	.stage[aria-pressed='true'] {
 		color: var(--ink);
 	}
 
-	.stages button[aria-pressed='true'] {
-		background: var(--raised);
-		box-shadow: var(--edge);
-		color: var(--ink);
+	.stage[aria-pressed='true'] .key {
+		--press: 1;
+		--face: var(--key-pale);
+		--skirt: var(--skirt-pale);
+		--rim: rgb(255 255 255 / 0.85);
+		color: var(--bg);
+	}
+
+	.stage[aria-pressed='true'][data-key='fail'] .key {
+		--face: var(--key-fail);
+		--skirt: var(--skirt-fail);
+	}
+
+	.stage[aria-pressed='true'][data-key='note'] .key {
+		--face: var(--key-note);
+		--skirt: var(--skirt-note);
+	}
+
+	.stage:active .key {
+		--press: 1;
+	}
+
+	@media (hover: hover) {
+		.stage:hover {
+			color: var(--ink);
+		}
+
+		.stage:hover .key {
+			--press: 1;
+		}
 	}
 
 	@media (min-width: 56rem) {
@@ -915,32 +1107,13 @@ const context = [
 			--gap: 5px;
 		}
 
-		.files {
-			font-size: 0.75rem;
+
+		.deck {
+			grid-template-columns: repeat(4, 8.5rem);
 		}
 
-		.stages {
-			display: flex;
-			justify-self: start;
-		}
-
-		.stages button {
-			padding-inline: 0.9rem;
-			font-size: 0.8125rem;
-		}
-	}
-
-	/* Arrives last in the page's entrance (see Hero.astro). */
-	@media (prefers-reduced-motion: no-preference) {
-		.frame {
-			animation: arrive 1.1s var(--ease-out) 0.55s both;
-		}
-	}
-
-	@keyframes arrive {
-		from {
-			opacity: 0;
-			transform: translateY(2.5rem);
+		.caption {
+			min-height: 0;
 		}
 	}
 
