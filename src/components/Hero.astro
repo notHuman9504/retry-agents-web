@@ -2,85 +2,109 @@
 import Pill from './Pill.astro';
 import { site } from '../site';
 
-// The three tiles tell the story in order: a mistake, the rewind, a pass.
-const icons = {
-	fail: 'M7 7 L17 17 M17 7 L7 17',
-	rewind: 'M11.5 6.5 V17.5 L4 12 Z M20 6.5 V17.5 L12.5 12 Z',
-	pass: 'M6 12.5 L10.5 17 L18.5 7.5',
-};
-type Tile = keyof typeof icons;
+const points = ['Files go back', 'Context goes back', 'The lesson stays'];
 
-const headline: (string | { tile: Tile })[][] = [
-	['Coding', { tile: 'fail' }, 'agents'],
-	['that', 'rewind', { tile: 'rewind' }, 'and'],
-	['try', { tile: 'pass' }, 'again'],
+// The three keys tell the story in order: a mistake, the rewind, a pass.
+const steps = [
+	{ key: 'fail', name: 'Wrong turn', result: 'tests fail', icon: 'M7 7 L17 17 M17 7 L7 17' },
+	{ key: 'note', name: 'Rewind', result: 'note kept', icon: 'M11.5 7 V17 L5 12 Z M19 7 V17 L12.5 12 Z' },
+	{ key: 'pass', name: 'Retry', result: 'tests pass', icon: 'M6 12.5 L10.5 17 L18.5 7.5' },
 ];
-
-// Every word and tile gets its place in the entrance, counted across the whole headline.
-let place = 0;
 ---
 
 <section class="hero wrap">
-	<h1>
-		{
-			headline.map((line) => (
-				<span class="line">
-					{line.map((part) => (
-						<>
-							{typeof part === 'string' ? (
-								<span class="word" style={`--n: ${place++}`}>
-									{part}
-								</span>
-							) : (
-								<i class:list={['tile', `tile--${part.tile}`]} style={`--n: ${place++}`} aria-hidden="true">
-									<svg viewBox="0 0 24 24">
-										<path d={icons[part.tile]} />
-									</svg>
-								</i>
-							)}{' '}
-						</>
-					))}
-				</span>
-			))
-		}
-	</h1>
-	<p class="lede">
-		<span>A rewind tool the agent calls itself.</span>
-		<span>Files and context go back. The lesson stays.</span>
-	</p>
-	<div class="actions">
-		<Pill href={site.repoUrl} label="Follow on GitHub" primary />
-		<Pill href="#demo" label="How it works">
-			<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-				<path d="M8 3 V13 M3.5 8.5 L8 13 L12.5 8.5"></path>
-			</svg>
-		</Pill>
+	<div class="copy">
+		<h1>
+			<span class="combo">
+				<kbd class="key">Ctrl</kbd>
+				<span class="plus">+</span>
+				<kbd class="key">Z</kbd>
+			</span>
+			<span class="line">for agents.</span>
+		</h1>
+		<ul class="points">
+			{points.map((point) => <li>{point}</li>)}
+		</ul>
+		<div class="actions">
+			<Pill href={site.repoUrl} label="Star on GitHub" primary />
+			<p>Open source &middot; starting with Pi</p>
+		</div>
+	</div>
+
+	<div class="stage" aria-hidden="true">
+		<div class="key big">
+			<span class="big__mod">ctrl</span>
+			<span class="big__letter">Z</span>
+		</div>
+		<div class="steps">
+			{
+				steps.map(({ key, name, result, icon }, i) => (
+					<>
+						{i > 0 && (
+							<svg class="arrow" viewBox="0 0 16 16" width="16" height="16">
+								<path d="M3 8 H13 M9 4 L13 8 L9 12" />
+							</svg>
+						)}
+						<div class="step" style={`--n: ${i}`}>
+							<i class:list={['key', `key--${key}`, `step__key--${key}`]}>
+								<svg viewBox="0 0 24 24">
+									<path d={icon} />
+								</svg>
+							</i>
+							<b>{name}</b>
+							<span>{result}</span>
+						</div>
+					</>
+				))
+			}
+		</div>
 	</div>
 </section>
 
 <style>
 	.hero {
 		display: grid;
-		justify-items: center;
-		padding-block: clamp(3rem, 8vw, 6.5rem) clamp(3rem, 6vw, 5rem);
-		text-align: center;
+		align-items: center;
+		gap: clamp(3.5rem, 8vw, 5rem) clamp(2rem, 5vw, 4rem);
+		padding-block: clamp(3rem, 8vw, 5rem) clamp(4rem, 8vw, 6rem);
 	}
 
-	/* The longest line is just under 8em wide, so on small screens the size is the column divided by 8. */
 	h1 {
-		font-size: clamp(2rem, (100vw - 2 * var(--gutter)) / 8, 6rem);
-		font-weight: var(--heavy);
-		line-height: 1.04;
+		display: grid;
+		justify-items: start;
+		font-size: clamp(3.5rem, 9vw, 7.5rem);
+		font-weight: 640;
+		line-height: 1;
+		letter-spacing: -0.045em;
+	}
+
+	/* The shortcut is set as real keys, smaller than the line below so the two read as one phrase. */
+	.combo {
+		display: flex;
+		align-items: center;
+		gap: 0.2em;
+		margin-bottom: 0.18em;
+		font-size: 0.62em;
+	}
+
+	.combo .key {
+		--depth: 0.1em;
+		height: 1.18em;
+		min-width: 1.18em;
+		padding-inline: 0.16em;
+		border-radius: 0.16em;
+		font-weight: 700;
 		letter-spacing: -0.04em;
 	}
 
-	.line {
-		display: block;
+	.plus {
+		color: var(--ghost);
+		font-size: 0.6em;
+		font-weight: 500;
 	}
 
 	/* The padding gives the gradient room to cover descenders; the margin takes it back out of the layout. */
-	.word {
-		display: inline-block;
+	.line {
 		margin-block: -0.12em;
 		padding-block: 0.12em;
 		background: var(--ink-fade);
@@ -89,133 +113,263 @@ let place = 0;
 		color: transparent;
 	}
 
-	/* Sized and set so the tile is centered on the capitals, a little taller than them. */
-	.tile {
-		display: inline-grid;
-		place-items: center;
-		width: 0.8em;
-		height: 0.8em;
-		margin-inline: 0.1em;
-		border-radius: 0.2em;
-		box-shadow:
-			inset 0 0.02em 0 rgb(255 255 255 / 0.45),
-			0 0.1em 0.3em rgb(0 0 0 / 0.35);
-		vertical-align: -0.05em;
+	/* Two things go back; the third, marked in the note's yellow, stays. */
+	.points {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.6rem 2rem;
+		margin-top: clamp(2rem, 4vw, 3rem);
+		color: var(--muted);
+		font-size: clamp(1.0625rem, 1.4vw, 1.1875rem);
 	}
 
-	.tile svg {
-		width: 62%;
-		height: 62%;
+	.points li {
+		display: flex;
+		align-items: center;
+		gap: 0.7rem;
 	}
 
-	.tile path {
-		fill: none;
-		stroke: var(--bg);
-		stroke-width: 3;
-		stroke-linecap: round;
-		stroke-linejoin: round;
-	}
-
-	.tile--rewind path {
-		fill: var(--bg);
-		stroke-width: 1.5;
-	}
-
-	.tile--fail {
-		background: var(--fail);
-	}
-
-	.tile--rewind {
-		background: var(--note);
-	}
-
-	.tile--pass {
+	.points li::before {
+		content: '';
+		width: 0.5em;
+		height: 0.5em;
+		border-radius: 0.12em;
 		background: var(--ink);
 	}
 
-	.lede {
-		margin-top: clamp(1.5rem, 3vw, 2.25rem);
-		color: var(--muted);
-		font-size: clamp(1.0625rem, 1.5vw, 1.25rem);
-		line-height: 1.4;
+	.points li:last-child {
+		color: var(--ink);
 	}
 
-	.lede span {
-		display: block;
+	.points li:last-child::before {
+		background: var(--note);
 	}
 
 	.actions {
 		display: flex;
 		flex-wrap: wrap;
-		justify-content: center;
-		gap: 0.6rem;
-		margin-top: clamp(1.75rem, 3.5vw, 2.75rem);
+		align-items: center;
+		gap: 1rem 1.25rem;
+		margin-top: clamp(2.25rem, 4.5vw, 3.25rem);
 	}
 
-	.actions path {
+	.actions :global(.pill) {
+		height: 3.25rem;
+		padding-inline: 1.6rem;
+		font-size: 1.0625rem;
+	}
+
+	.actions p {
+		color: color-mix(in srgb, var(--muted) 80%, var(--bg));
+		font-size: 0.9375rem;
+	}
+
+	/* The stage: one big key, tilted, sitting in a pool of shadow, with the story along the floor. */
+	.stage {
+		position: relative;
+		display: grid;
+		justify-items: center;
+		gap: clamp(3rem, 6vw, 4.5rem);
+	}
+
+	.stage::before {
+		content: '';
+		position: absolute;
+		inset: -10% -5% 25%;
+		z-index: -1;
+		background: radial-gradient(closest-side, rgb(0 0 0 / 0.4), transparent);
+	}
+
+	.big {
+		--size: clamp(13rem, 26vw, 20rem);
+		--depth: 0.8em;
+		--lift: 2.4em;
+		--blur: 4em;
+		display: grid;
+		place-items: stretch;
+		width: var(--size);
+		aspect-ratio: 1 / 1.04;
+		padding: 1.7em 1.5em 1.5em 1.8em;
+		border-radius: 2.2em;
+		font-size: calc(var(--size) / 16);
+		rotate: -5deg;
+	}
+
+	.big > span {
+		grid-area: 1 / 1;
+		line-height: 1;
+	}
+
+	.big__mod {
+		align-self: start;
+		justify-self: start;
+		color: #8a8a86;
+		font-size: 1.9em;
+		font-weight: 500;
+		letter-spacing: -0.01em;
+	}
+
+	.big__letter {
+		align-self: end;
+		justify-self: end;
+		font-size: 9.5em;
+		font-weight: 750;
+		letter-spacing: -0.06em;
+	}
+
+	.steps {
+		display: grid;
+		grid-template-columns: repeat(5, auto);
+		align-items: start;
+		justify-content: space-between;
+		width: min(100%, 26rem);
+	}
+
+	.step {
+		display: grid;
+		justify-items: center;
+		width: 6.5rem;
+		text-align: center;
+	}
+
+	.step .key {
+		--depth: 0.32em;
+		width: 3.5em;
+		height: 3.5em;
+		margin-bottom: 1.1rem;
+		border-radius: 0.6em;
+	}
+
+	.step svg {
+		width: 46%;
+		height: 46%;
+	}
+
+	.step path {
 		fill: none;
-		stroke: currentColor;
-		stroke-width: 1.75;
+		stroke: var(--bg);
+		stroke-width: 2.5;
 		stroke-linecap: round;
 		stroke-linejoin: round;
 	}
 
-	/* The one entrance on the page. The headline opens from condensed to full width while each
-	   word comes into focus in turn and each tile pops into its gap; then the rest rises in. */
+	.step__key--note path {
+		fill: var(--bg);
+		stroke-width: 1.25;
+	}
+
+	.step b {
+		font-weight: 500;
+	}
+
+	.step span {
+		color: var(--muted);
+		font-size: 0.875rem;
+	}
+
+	/* Arrows sit level with the middle of the keys. */
+	.arrow {
+		margin-top: calc(1.75rem - 8px);
+	}
+
+	.arrow path {
+		fill: none;
+		stroke: var(--muted);
+		stroke-width: 1.25;
+		opacity: 0.6;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	@media (min-width: 56rem) {
+		.hero {
+			grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+			min-height: min(50rem, calc(100svh - 4.5rem));
+		}
+	}
+
+	@media (hover: hover) {
+		.big:hover {
+			translate: 0 calc(var(--depth) * 0.75);
+			box-shadow: var(--down);
+		}
+	}
+
 	@media (prefers-reduced-motion: no-preference) {
-		h1 {
-			animation: open 1.5s var(--ease-out) both;
+		/* The entrance: the keys drop onto the desk, then the rest rises in. */
+		.combo .key,
+		.big {
+			animation: drop 0.8s var(--ease-spring) both;
 		}
 
-		.word {
-			animation: focus 1s var(--ease-out) both;
-			animation-delay: calc(var(--n) * 65ms);
+		.combo .key:last-child {
+			animation-delay: 0.08s;
 		}
 
-		.tile {
-			animation: pop 0.7s var(--ease-spring) both;
-			animation-delay: calc(200ms + var(--n) * 65ms);
-		}
-
-		.lede,
-		.actions {
+		.line,
+		.points,
+		.actions,
+		.steps {
 			animation: rise 0.9s var(--ease-out) both;
 		}
 
-		.lede {
-			animation-delay: 0.55s;
+		.line {
+			animation-delay: 0.15s;
+		}
+
+		.points {
+			animation-delay: 0.3s;
 		}
 
 		.actions {
-			animation-delay: 0.65s;
+			animation-delay: 0.4s;
+		}
+
+		.big {
+			animation-delay: 0.2s;
+		}
+
+		.steps {
+			animation-delay: 0.5s;
+		}
+
+		/* Then the story plays on a loop: each key is struck in turn, and the big Z goes down with the rewind. */
+		.step .key {
+			animation: strike 6s calc(1.4s + var(--n) * 0.9s) infinite;
+		}
+
+		.big:not(:hover) {
+			animation:
+				drop 0.8s var(--ease-spring) 0.2s both,
+				strike 6s 2.3s infinite;
 		}
 	}
 
-	@keyframes open {
-		from {
-			font-stretch: 78%;
-		}
-	}
-
-	@keyframes focus {
+	@keyframes drop {
 		from {
 			opacity: 0;
-			filter: blur(0.16em);
-			transform: translateY(0.35em);
-		}
-	}
-
-	@keyframes pop {
-		from {
-			opacity: 0;
-			transform: scale(0.2) rotate(-18deg);
+			transform: translateY(-0.6em) scale(1.06);
 		}
 	}
 
 	@keyframes rise {
 		from {
 			opacity: 0;
-			transform: translateY(0.45em);
+			transform: translateY(0.75rem);
+		}
+	}
+
+	@keyframes strike {
+		0%,
+		7%,
+		100% {
+			translate: 0;
+			box-shadow: var(--up);
+		}
+		2.5%,
+		4% {
+			translate: 0 calc(var(--depth) * 0.75);
+			box-shadow: var(--down);
 		}
 	}
 </style>

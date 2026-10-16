@@ -3,7 +3,7 @@ import { site } from '../site';
 ---
 
 <footer class="footer" data-footer>
-	<div class="wrap">
+	<div class="wrap" data-column>
 		<span>{site.name}</span>
 		<span>{new Date().getFullYear()}</span>
 	</div>
@@ -11,10 +11,24 @@ import { site } from '../site';
 </footer>
 
 <script>
-	// The pointer carries a light across the wordmark.
 	const footer = document.querySelector<HTMLElement>('[data-footer]');
+	const column = footer?.querySelector<HTMLElement>('[data-column]');
 	const mark = footer?.querySelector<HTMLElement>('[data-mark]');
-	if (footer && mark) {
+
+	if (footer && column && mark) {
+		// Whatever the name is, it is sized to span the page's column exactly.
+		const fit = () => {
+			const letters = document.createRange();
+			letters.selectNodeContents(mark);
+			const perPixel = letters.getBoundingClientRect().width / parseFloat(getComputedStyle(mark).fontSize);
+			const style = getComputedStyle(column);
+			const width = column.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+			mark.style.fontSize = `${width / perPixel}px`;
+		};
+		new ResizeObserver(fit).observe(column);
+		document.fonts.ready.then(fit);
+
+		// The pointer carries a light across the wordmark.
 		footer.addEventListener('pointermove', (event) => {
 			const box = mark.getBoundingClientRect();
 			mark.style.setProperty('--x', `${event.clientX - box.left}px`);
@@ -38,18 +52,19 @@ import { site } from '../site';
 		padding-block: 2rem;
 	}
 
-	/* The name, set as wide as the page and sinking into the floor. */
+	/* The name, standing in the floor: the edge cuts it just above the baseline, and the type fades as it gets there.
+	   The font size here is only the starting point; the script above fits it to the column. */
 	.mark {
 		--x: 50%;
 		--y: 50%;
-		margin-bottom: -0.14em;
+		margin-bottom: -0.25em;
 		background:
 			radial-gradient(24rem circle at var(--x) var(--y), rgb(200 200 200 / var(--glow)), transparent 70%),
-			linear-gradient(#2a2a2a, var(--well) 88%);
+			linear-gradient(#303030 10%, var(--well) 78%);
 		-webkit-background-clip: text;
 		background-clip: text;
 		color: transparent;
-		font-size: min(15.5vw, 18rem);
+		font-size: 38vw;
 		font-weight: 600;
 		line-height: 0.9;
 		letter-spacing: -0.05em;

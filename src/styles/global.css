@@ -201,6 +201,41 @@ a {
 	translate: 0;
 }
 
+/* A keycap: a pale face standing on a darker skirt. Pressing it sinks the face into the skirt.
+   Sizes are in em, so a key scales with the font size it is set at. */
+.key {
+	--skirt: #8f8f8a;
+	--depth: 0.12em;
+	--lift: 0.3em;
+	--blur: 0.6em;
+	--up:
+		inset 0 1px 0 rgb(255 255 255 / 0.85), 0 var(--depth) 0 var(--skirt),
+		0 calc(var(--depth) + var(--lift)) var(--blur) rgb(0 0 0 / 0.45);
+	--down:
+		inset 0 1px 0 rgb(255 255 255 / 0.85), 0 calc(var(--depth) * 0.25) 0 var(--skirt),
+		0 calc(var(--depth) * 0.25 + var(--lift) * 0.4) calc(var(--blur) * 0.5) rgb(0 0 0 / 0.45);
+	display: inline-grid;
+	place-items: center;
+	border-radius: 0.22em;
+	background: linear-gradient(#fbfbf9, #e6e6e2);
+	box-shadow: var(--up);
+	color: var(--bg);
+	font: inherit;
+	transition:
+		translate 0.15s var(--ease-out),
+		box-shadow 0.15s var(--ease-out);
+}
+
+.key--fail {
+	--skirt: #c24a39;
+	background: linear-gradient(#ff8b78, #f4705b);
+}
+
+.key--note {
+	--skirt: #c29b22;
+	background: linear-gradient(#ffe06a, #f5cc3a);
+}
+
 /* Two-tone statements: a bright line, then a quiet one at the same size. */
 .statement {
 	font-size: clamp(1.75rem, 3.6vw, 2.75rem);
