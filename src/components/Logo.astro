@@ -1,0 +1,13 @@
+---
+// The mark: two checkpoints, one behind the other. The front one, in the note's yellow, is where you land.
+interface Props {
+	size?: number;
+}
+
+const { size = 24 } = Astro.props;
+---
+
+<svg class="logo" viewBox="0 0 32 32" width={size} height={size} aria-hidden="true">
+	<rect x="11" y="3" width="18" height="18" rx="4.5" fill="currentColor"></rect>
+	<rect x="3" y="11" width="18" height="18" rx="4.5" fill="#ffd84d"></rect>
+</svg>
